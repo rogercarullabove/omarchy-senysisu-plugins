@@ -1,0 +1,24 @@
+#!/bin/bash
+# Prints current WiFi / WWAN(LTE) / Bluetooth radio states as one JSON
+# object, for the roger.airplane-mode plugin's bar icon and tooltip.
+# "airplaneOn" is derived (all three off), not stored anywhere, so the icon
+# stays accurate even if the user changes a radio outside this plugin.
+
+WIFI=$(nmcli radio wifi 2>/dev/null || echo "unknown")
+WWAN=$(nmcli radio wwan 2>/dev/null || echo "unknown")
+
+BT_LINE=$(bluetoothctl show 2>/dev/null | grep -m1 "Powered:")
+if [[ "$BT_LINE" == *"yes"* ]]; then
+    BLUETOOTH="enabled"
+else
+    BLUETOOTH="disabled"
+fi
+
+AIRPLANE="false"
+if [[ "$WIFI" == "disabled" && "$WWAN" == "disabled" && "$BLUETOOTH" == "disabled" ]]; then
+    AIRPLANE="true"
+fi
+
+cat << EOF
+{"wifi": "${WIFI}", "wwan": "${WWAN}", "bluetooth": "${BLUETOOTH}", "airplaneOn": ${AIRPLANE}}
+EOF

@@ -1,0 +1,67 @@
+#!/bin/bash
+# Toggles WiFi, Bluetooth, and the WWAN (LTE modem) radio together as
+# "airplane mode".
+#
+# Direction is decided by current radio state, not an internal flag: if all
+# three are currently off, this is a restore (read the snapshot, put each
+# radio back how it was); otherwise this is an engage (snapshot the current
+# per-radio state, then disable all three). That mirrors how the bar icon
+# itself decides its on/off look, so a manual radio change between clicks
+# can't leave the toggle out of sync with what it's about to do.
+#
+# WWAN uses `nmcli radio wwan`, not `mmcli -e/-d` directly: the LTE
+# connection here has autoconnect=yes with unlimited retries, so
+# NetworkManager immediately re-enables a modem disabled via mmcli. `nmcli
+# radio wwan` is the layer NM itself respects as explicit user intent (see
+# roger.lte's Panel.qml for the same lesson learned there).
+set -uo pipefail
+
+STATE_FILE="$HOME/.local/state/omarchy-airplane-mode.json"
+
+wifi_state() { nmcli radio wifi 2>/dev/null; }
+wwan_state() { nmcli radio wwan 2>/dev/null; }
+bt_state() {
+    local line
+    line=$(bluetoothctl show 2>/dev/null | grep -m1 "Powered:")
+    if [[ "$line" == *"yes"* ]]; then echo "enabled"; else echo "disabled"; fi
+}
+
+read_stored() {
+    # $1: key name -> "enabled"/"disabled", defaulting to "enabled" if the
+    # key is missing or the file is unreadable (safer default: turn it back
+    # on rather than silently leave a radio off with no way to tell why).
+    grep -oP "\"$1\"\s*:\s*\"\K[a-z]+" "$STATE_FILE" 2>/dev/null || echo "enabled"
+}
+
+mkdir -p "$(dirname "$STATE_FILE")"
+
+if [[ "$(wifi_state)" == "disabled" && "$(wwan_state)" == "disabled" && "$(bt_state)" == "disabled" ]]; then
+    # Airplane mode is currently ON -> restore prior per-radio state.
+    if [[ -f "$STATE_FILE" ]]; then
+        WIFI_PREV=$(read_stored wifi)
+        WWAN_PREV=$(read_stored wwan)
+        BT_PREV=$(read_stored bluetooth)
+        rm -f "$STATE_FILE"
+    else
+        # No snapshot (radios were turned off some other way) -> default to
+        # restoring everything on.
+        WIFI_PREV="enabled"
+        WWAN_PREV="enabled"
+        BT_PREV="enabled"
+    fi
+
+    [[ "$WIFI_PREV" == "enabled" ]] && nmcli radio wifi on
+    [[ "$WWAN_PREV" == "enabled" ]] && nmcli radio wwan on
+    [[ "$BT_PREV" == "enabled" ]] && bluetoothctl power on >/dev/null
+    exit 0
+else
+    # Airplane mode is currently OFF -> snapshot state, then disable all three.
+    cat > "$STATE_FILE" << EOF
+{"wifi": "$(wifi_state)", "wwan": "$(wwan_state)", "bluetooth": "$(bt_state)"}
+EOF
+
+    nmcli radio wifi off
+    nmcli radio wwan off
+    bluetoothctl power off >/dev/null
+    exit 0
+fi

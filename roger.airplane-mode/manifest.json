@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "roger.airplane-mode",
+  "name": "Airplane Mode",
+  "version": "1.0.0",
+  "author": "Roger",
+  "license": "MIT",
+  "description": "One-tap toggle that disables WiFi, Bluetooth, and the LTE modem together, restoring each to its prior state when turned back off.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Airplane Mode",
+    "description": "Toggle WiFi, Bluetooth, and the LTE modem together; restores each radio's prior state when turned back off.",
+    "category": "Network",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
