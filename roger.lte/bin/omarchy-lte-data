@@ -1,0 +1,71 @@
+#!/bin/bash
+# Outputs a single JSON object describing current LTE modem state.
+# Used by the roger.lte plugin's Panel.qml (polled every few seconds).
+
+MODEM=$(mmcli -L 2>/dev/null | grep -oP '/Modem/\K[0-9]+' | head -1)
+
+if [ -z "$MODEM" ]; then
+    echo '{"present": false}'
+    exit 0
+fi
+
+INFO=$(mmcli -m "$MODEM" -K 2>/dev/null)
+
+field() {
+    echo "$INFO" | grep "^$1 " | awk -F': ' '{print $2}' | xargs
+}
+
+STATE=$(field "modem.generic.state")
+POWER=$(field "modem.generic.power-state")
+SIGNAL=$(field "modem.generic.signal-quality.value")
+OPERATOR=$(field "modem.3gpp.operator-name")
+REGISTRATION=$(field "modem.3gpp.registration-state")
+# access-technologies is a list, printed by mmcli -K as indexed lines
+# (modem.generic.access-technologies.value[1]: lte, [2]: umts, ...) alongside
+# a sibling .length line — plain field() lookup misses it, so pull every
+# indexed value and join them.
+TECH=$(echo "$INFO" | grep "^modem.generic.access-technologies.value\[" | awk -F': ' '{print $2}' | xargs | tr ' ' ',')
+
+ROAMING="false"
+[ "$REGISTRATION" = "roaming" ] && ROAMING="true"
+
+CONNECTED="false"
+[ "$STATE" = "connected" ] && CONNECTED="true"
+
+# Quick ping, only when connected — bounded to avoid blocking the UI thread too long
+PING_MS="null"
+if [ "$CONNECTED" = "true" ]; then
+    NET_IF=$(mmcli -m "$MODEM" 2>/dev/null | grep -oP '\bwwan\d+(?= \(net\))' | head -1)
+    [ -z "$NET_IF" ] && NET_IF="wwan0"
+    RESULT=$(ping -I "$NET_IF" -c 1 -W 2 1.1.1.1 2>/dev/null | grep -oP 'time=\K[0-9.]+')
+    if [ -n "$RESULT" ]; then
+        PING_MS="$RESULT"
+    fi
+fi
+
+# Signal bucketed 0-4 for a 4-bar icon
+BARS=0
+if [ -n "$SIGNAL" ]; then
+    if   [ "$SIGNAL" -ge 80 ]; then BARS=4
+    elif [ "$SIGNAL" -ge 55 ]; then BARS=3
+    elif [ "$SIGNAL" -ge 30 ]; then BARS=2
+    elif [ "$SIGNAL" -ge 1  ]; then BARS=1
+    else BARS=0
+    fi
+fi
+
+cat << EOF
+{
+  "present": true,
+  "modemIndex": ${MODEM},
+  "state": "${STATE:-unknown}",
+  "powerState": "${POWER:-unknown}",
+  "signal": ${SIGNAL:-0},
+  "bars": ${BARS},
+  "operator": "${OPERATOR:-Unknown}",
+  "technology": "${TECH:-Unknown}",
+  "roaming": ${ROAMING},
+  "connected": ${CONNECTED},
+  "pingMs": ${PING_MS}
+}
+EOF

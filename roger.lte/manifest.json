@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "roger.lte",
+  "name": "LTE Modem",
+  "version": "1.0.0",
+  "author": "Roger",
+  "license": "MIT",
+  "description": "Signal-bar icon and detail panel for the LTE modem (via mmcli), with an enable/disable toggle.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "LTE Modem",
+    "description": "Signal, operator, technology, roaming, and ping for the LTE modem, plus an enable/disable toggle.",
+    "category": "Network",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
