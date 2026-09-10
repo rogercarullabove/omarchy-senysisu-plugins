@@ -36,8 +36,9 @@ Each plugin directory is a self-contained, installable unit:
 ```
 roger.<name>/
   manifest.json   plugin registration
-  Panel.qml       the bar icon (+ popup panel, for roger.lte) — single entry point
-  Model.js        data-fetching/parsing logic used by Panel.qml
+  BarWidget.qml   manifest entry point — bar icon/button, loads Panel.qml (roger.lte only; see below)
+  Panel.qml       popup panel (roger.lte) or, for roger.airplane-mode, the bar icon itself
+  Model.js        data-fetching/parsing logic used by BarWidget.qml/Panel.qml
   bin/            backing shell scripts the widget shells out to, installed to ~/.local/bin
 ```
 
@@ -72,19 +73,36 @@ state, and ping, plus a power toggle.
   see below.
 - Modem index is resolved dynamically via `mmcli -L` on every poll, never
   hardcoded, since it can change across boots or after a SIM slot switch.
+- Structured per the documented `BarWidget.qml` + `Panel.qml` contract (see
+  lesson 1 below): `BarWidget.qml` is the manifest entry point and owns the
+  bar icon button; `Panel.qml` is loaded into it and owns the modem
+  poll/toggle logic and the popup. Supports `omarchy-shell shell
+  summon|hide|toggle roger.lte` via `BarWidget.qml`'s `IpcHandler`.
 
 ## Lessons learned building these (apply to any future plugin here)
 
-**1. A plugin's bar entry point is a single `Panel.qml`, not a
-`BarWidget.qml` + `Panel.qml` pair.** A published Omarchy plugin-dev
-tutorial shows the two-file split; that's not how Omarchy's own built-in
-widgets (or these two) are actually structured in this version.
-`manifest.json`'s `entryPoints.barWidget` points straight at `Panel.qml`,
-which itself extends the shared `Panel` base (from `qs.Ui`) and embeds its
-own `BarIconButton` — confirmed by reading several first-party plugins
-(`omarchy.weather`, `omarchy.dropbox`) before writing anything new. Getting
-this wrong once caused a `TypeError: Cannot assign to read-only property
-"moduleName"` that took down the whole desktop.
+**1. A plugin's manifest entry point is `BarWidget.qml`, which loads a
+nested `Panel.qml` via a `Loader` — per
+[the official plugin-dev docs](https://plugins.omarchy.org/develop.html)
+and confirmed by reading the installed first-party plugins
+(`omarchy.weather`, `omarchy.clock` under `/usr/share/omarchy/shell/plugins/`).
+`BarWidget.qml` extends the `BarWidget` base (from `qs.Ui`), owns the bar
+button, and forwards `open()`/`close()`/`toggle()`/`opened`/
+`popoutSwitchClosing`/`closeForPopoutSwitch()` to whatever `Panel.qml`
+loads; `Panel.qml` extends the `Panel` base, sets `manageIpc: false` (the
+`BarWidget.qml` `IpcHandler` is the one that's live), and takes
+`anchorItem`/`hostWidget` from its host via the `Loader`'s `onLoaded`. Both
+files share the same `moduleName`. `roger.lte` follows this split;
+`roger.airplane-mode` still predates it — a single `Panel.qml` as the
+entry point, which `omarchy plugin validate` accepts and which does run,
+but doesn't match the documented contract (no `BarWidget.qml`, no popout
+lifecycle forwarding). An earlier, wrong belief that the single-file shape
+was actually correct came from an older observation of the shell that
+didn't hold up on a fresh read of the current first-party sources — worth
+re-checking before trusting it again. Getting the base class wrong entirely
+(e.g. assigning to `moduleName` on a type that doesn't declare it) can take
+down the whole desktop with a `TypeError: Cannot assign to read-only
+property "moduleName"`.
 
 **2. Toggling a radio via the tool that "owns" it directly (`mmcli -e`/`-d`
 for the modem) can fight NetworkManager's autoconnect.** The `telia` GSM

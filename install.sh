@@ -4,8 +4,9 @@
 #
 # Installs one of this repo's Omarchy bar-widget plugins: copies its
 # backing scripts (plugin-dir/bin/*) into ~/.local/bin, its
-# manifest.json/Panel.qml/Model.js into
-# ~/.config/omarchy/plugins/<plugin-id>, validates it, enables it (placed
+# manifest.json/[BarWidget.qml/]Panel.qml/Model.js into
+# ~/.config/omarchy/plugins/<plugin-id> (BarWidget.qml only if the plugin
+# has one — see README), validates it, enables it (placed
 # right after --after's widget if given, otherwise appended to whatever
 # section its manifest's defaultSection says), forces a full shell
 # restart, and confirms.
@@ -51,6 +52,9 @@ PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
 echo "==> Installing plugin files to $PLUGIN_DIR"
 mkdir -p "$PLUGIN_DIR"
 cp "$PLUGIN_SRC/manifest.json" "$PLUGIN_SRC/Panel.qml" "$PLUGIN_SRC/Model.js" "$PLUGIN_DIR/"
+if [[ -f "$PLUGIN_SRC/BarWidget.qml" ]]; then
+    cp "$PLUGIN_SRC/BarWidget.qml" "$PLUGIN_DIR/"
+fi
 
 echo "==> Validating plugin"
 if command -v omarchy >/dev/null 2>&1; then

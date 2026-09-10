@@ -16,7 +16,6 @@ field() {
 }
 
 STATE=$(field "modem.generic.state")
-POWER=$(field "modem.generic.power-state")
 SIGNAL=$(field "modem.generic.signal-quality.value")
 OPERATOR=$(field "modem.3gpp.operator-name")
 REGISTRATION=$(field "modem.3gpp.registration-state")
@@ -25,6 +24,19 @@ REGISTRATION=$(field "modem.3gpp.registration-state")
 # a sibling .length line — plain field() lookup misses it, so pull every
 # indexed value and join them.
 TECH=$(echo "$INFO" | grep "^modem.generic.access-technologies.value\[" | awk -F': ' '{print $2}' | xargs | tr ' ' ',')
+
+# The toggle controls NetworkManager's WWAN radio kill switch (`nmcli radio
+# wwan`), not ModemManager's own power-state — the two are tracked
+# independently and can drift apart (e.g. NM shows "disabled" while MM still
+# reports power-state "on"). Reporting powerState from the same layer the
+# toggle actually flips keeps the switch's on/off reading, and the direction
+# it toggles, honest.
+WWAN=$(nmcli radio wwan 2>/dev/null)
+case "$WWAN" in
+    enabled)  POWER="on" ;;
+    disabled) POWER="off" ;;
+    *)        POWER="unknown" ;;
+esac
 
 ROAMING="false"
 [ "$REGISTRATION" = "roaming" ] && ROAMING="true"

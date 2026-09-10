@@ -7,10 +7,29 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 
+// Nested detail popup, loaded by BarWidget.qml. Owns the modem data fetch,
+// poll timer, and power toggle; BarWidget.qml just reads `icon` for the bar
+// button and forwards open/close/toggle lifecycle in and out.
 Panel {
   id: root
   moduleName: "roger.lte"
-  ipcTarget: "roger.lte"
+  manageIpc: false
+
+  property var anchorItem: null
+
+  // The bar tracks the widget mounted in its slot — BarWidget.qml — not this
+  // nested panel. Everything the bar identifies a panel by has to be that
+  // widget: the popout coordinator (and with it the open-panel dot under the
+  // pill) compares against `slot.activeItem`, and switchPanelFrom looks the
+  // slot up the same way.
+  property var hostWidget: null
+  readonly property var barIdentity: hostWidget || root
+
+  function switchPanel(direction) {
+    if (root.bar && typeof root.bar.switchPanelFrom === "function")
+      return root.bar.switchPanelFrom(root.barIdentity, direction)
+    return false
+  }
 
   property var info: Model.parseLteStatus("")
   property bool cursorActive: false
@@ -22,7 +41,6 @@ Panel {
   readonly property color urgent: bar ? bar.urgent : Color.urgent
   readonly property color dim: Qt.darker(foreground, 1.4)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property color barIconColor: info.present && info.connected ? barForeground : Qt.darker(barForeground, 1.55)
   readonly property bool headerHasCursor: cursorActive
   readonly property string toggleHint: info.powerState === "on" ? "Turn modem off" : "Turn modem on"
 
@@ -43,9 +61,6 @@ Panel {
     actionProc.command = ["nmcli", "radio", "wwan", turnOn ? "on" : "off"]
     actionProc.running = true
   }
-
-  implicitWidth: button.implicitWidth
-  implicitHeight: button.implicitHeight
 
   Component.onCompleted: refresh()
 
@@ -87,22 +102,10 @@ Panel {
     onTriggered: root.refresh()
   }
 
-  BarIconButton {
-    id: button
-    anchors.fill: parent
-    bar: root.bar
-    text: root.icon
-
-    onPressed: function(buttonCode) {
-      if (buttonCode === Qt.MiddleButton) root.refresh()
-      else root.toggle()
-    }
-  }
-
   KeyboardPanel {
     id: panel
-    anchorItem: button
-    owner: root
+    anchorItem: root.anchorItem
+    owner: root.barIdentity
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
