@@ -22,6 +22,15 @@ PLUGIN_FILES=(manifest.json Service.qml LockView.qml WeatherBackdrop.qml setting
 
 command -v omarchy >/dev/null 2>&1 || { echo "omarchy not found — this only installs on Omarchy." >&2; exit 1; }
 
+# Swapping lock plugins disables the one holding the lock, which strands a
+# locked session behind Hyprland's failsafe (easy to hit over ssh while the
+# machine sits at its lock screen). Only install or uninstall when unlocked.
+if omarchy-hyprland-session-locked 2>/dev/null ||
+    [[ "$(omarchy-shell lock status 2>/dev/null | jq -r '.locked or .sessionLocked' 2>/dev/null)" == "true" ]]; then
+    echo "The session is locked — unlock it first, then re-run this installer." >&2
+    exit 1
+fi
+
 restore_builtin() {
     echo "!!  Install failed — re-enabling the built-in omarchy.lock" >&2
     omarchy plugin disable "$PLUGIN_ID" >/dev/null 2>&1 || true
