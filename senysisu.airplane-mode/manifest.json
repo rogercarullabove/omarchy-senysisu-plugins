@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "roger.airplane-mode",
+  "id": "senysisu.airplane-mode",
   "name": "Airplane Mode",
   "version": "1.0.0",
-  "author": "Roger",
+  "author": "senysisu",
   "license": "MIT",
   "description": "One-tap toggle that disables WiFi, Bluetooth, and the LTE modem together, restoring each to its prior state when turned back off.",
   "kinds": [

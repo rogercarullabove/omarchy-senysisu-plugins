@@ -1,4 +1,4 @@
-# Omarchy plugins
+# senysisu Omarchy plugins
 
 Personal Quickshell shell plugins for [Omarchy](https://omarchy.org/): bar
 widgets plus a custom lock screen, kept together here because they share the
@@ -14,39 +14,39 @@ machine.
 
 ```bash
 git clone <this repo>
-cd omarchy-plugins
+cd omarchy-senysisu-plugins
 chmod +x install.sh
-./install.sh roger.airplane-mode --after omarchy.weather
-./install.sh roger.lte
-./install.sh roger.lock
+./install.sh senysisu.airplane-mode --after omarchy.weather
+./install.sh senysisu.lte
+./install.sh senysisu.lock
 ```
 
 `--after <widget-id>` is optional for any bar widget — omit it to just
-append the widget to its manifest's `defaultSection`. `roger.lock` isn't a
-bar widget: `install.sh` hands it off to `roger.lock/install.sh` (see below).
+append the widget to its manifest's `defaultSection`. `senysisu.lock` isn't a
+bar widget: `install.sh` hands it off to `senysisu.lock/install.sh` (see below).
 
 ## What's in here
 
 | Path | Purpose |
 |---|---|
 | `install.sh` | Shared installer for any plugin in this repo — see Quick start |
-| `roger.airplane-mode/` | One-tap toggle for WiFi + Bluetooth + LTE together |
-| `roger.lte/` | Signal-bar icon + detail panel for the LTE modem (via `mmcli`), with its own enable/disable toggle |
-| `roger.lock/` | Custom lock screen (replaces `omarchy.lock`), configured from a Lua file — see its own README |
+| `senysisu.airplane-mode/` | One-tap toggle for WiFi + Bluetooth + LTE together |
+| `senysisu.lte/` | Signal-bar icon + detail panel for the LTE modem (via `mmcli`), with its own enable/disable toggle |
+| `senysisu.lock/` | Custom lock screen (replaces `omarchy.lock`), configured from a Lua file — see its own README |
 
 Each plugin directory is a self-contained, installable unit. The bar
 widgets share this shape:
 
 ```
-roger.<name>/
+senysisu.<name>/
   manifest.json   plugin registration
-  BarWidget.qml   manifest entry point — bar icon/button, loads Panel.qml (roger.lte only; see below)
-  Panel.qml       popup panel (roger.lte) or, for roger.airplane-mode, the bar icon itself
+  BarWidget.qml   manifest entry point — bar icon/button, loads Panel.qml (senysisu.lte only; see below)
+  Panel.qml       popup panel (senysisu.lte) or, for senysisu.airplane-mode, the bar icon itself
   Model.js        data-fetching/parsing logic used by BarWidget.qml/Panel.qml
   bin/            backing shell scripts the widget shells out to, installed to ~/.local/bin
 ```
 
-## roger.airplane-mode
+## senysisu.airplane-mode
 
 Toggles WiFi, Bluetooth, and the LTE modem together as one action.
 
@@ -67,7 +67,7 @@ Toggles WiFi, Bluetooth, and the LTE modem together as one action.
 - LTE uses `nmcli radio wwan on`/`off`, not `mmcli -e`/`-d` — see the shared
   lesson below. No sudoers rule needed.
 
-## roger.lte
+## senysisu.lte
 
 Signal-bar icon reflecting live modem state (`~/.local/bin/omarchy-lte-data`
 polls `mmcli`), with a popup panel showing operator, technology, roaming,
@@ -81,9 +81,9 @@ state, and ping, plus a power toggle.
   lesson 1 below): `BarWidget.qml` is the manifest entry point and owns the
   bar icon button; `Panel.qml` is loaded into it and owns the modem
   poll/toggle logic and the popup. Supports `omarchy-shell shell
-  summon|hide|toggle roger.lte` via `BarWidget.qml`'s `IpcHandler`.
+  summon|hide|toggle senysisu.lte` via `BarWidget.qml`'s `IpcHandler`.
 
-## roger.lock
+## senysisu.lock
 
 A customized clone of Omarchy's built-in lock screen: stacked poster clock
 with date, weather line, battery and Wi-Fi indicators placeable in any
@@ -91,19 +91,19 @@ corner, a show-password toggle, a pill password field, and weather effects
 (color grading per weather/day/night, layered rain whose nearest layer
 passes in front of the clock, storms with lightning, snow) that follow the
 real weather or can be set by hand. Everything is set
-from `roger.lock/settings.lua`, which applies live on save. Colors follow the
+from `senysisu.lock/settings.lua`, which applies live on save. Colors follow the
 current Omarchy theme.
 
 It's a different shape from the bar widgets — a `service` plugin with
 `Service.qml` (locking + PAM, unchanged from Omarchy), `LockView.qml` (the
-UI), `WeatherBackdrop.qml` (effects) and `assets/` (particle textures) — so it ships its own `roger.lock/install.sh`, which the shared
+UI), `WeatherBackdrop.qml` (effects) and `assets/` (particle textures) — so it ships its own `senysisu.lock/install.sh`, which the shared
 `install.sh` hands off to whenever a plugin folder has one. That installer
 keeps an existing `settings.lua`, swaps the plugin in for `omarchy.lock`, and
 re-enables `omarchy.lock` if anything fails, so the machine is never left
-without a lock screen. `./install.sh roger.lock --uninstall` switches back.
+without a lock screen. `./install.sh senysisu.lock --uninstall` switches back.
 
 Full details (settings reference, layout, caveats):
-[`roger.lock/README.md`](roger.lock/README.md).
+[`senysisu.lock/README.md`](senysisu.lock/README.md).
 
 ## Lessons learned building these (apply to any future plugin here)
 
@@ -118,8 +118,8 @@ button, and forwards `open()`/`close()`/`toggle()`/`opened`/
 loads; `Panel.qml` extends the `Panel` base, sets `manageIpc: false` (the
 `BarWidget.qml` `IpcHandler` is the one that's live), and takes
 `anchorItem`/`hostWidget` from its host via the `Loader`'s `onLoaded`. Both
-files share the same `moduleName`. `roger.lte` follows this split;
-`roger.airplane-mode` still predates it — a single `Panel.qml` as the
+files share the same `moduleName`. `senysisu.lte` follows this split;
+`senysisu.airplane-mode` still predates it — a single `Panel.qml` as the
 entry point, which `omarchy plugin validate` accepts and which does run,
 but doesn't match the documented contract (no `BarWidget.qml`, no popout
 lifecycle forwarding). An earlier, wrong belief that the single-file shape
@@ -182,7 +182,7 @@ nothing — keep `clonedFrom` intact when editing the manifest.
 file logs "Local plugin changed, reloading" but the running lock service is
 kept (the shell refuses to create a second auth service), so the old UI keeps
 showing. `omarchy restart shell` is required after code changes. Data the
-plugin reads at runtime (like `roger.lock/settings.lua`, watched with a
+plugin reads at runtime (like `senysisu.lock/settings.lua`, watched with a
 `FileView`) does update live.
 
 **9. Test the lock screen with its preview, not by locking.**
@@ -227,8 +227,8 @@ need it confirmed open (`hyprctl layers -j | grep omarchy-lock-preview`).
 ## Debugging, if something doesn't load
 
 ```bash
-omarchy plugin list --json | jq '.[] | select(.id | startswith("roger."))'
-journalctl --user -g roger.lock          # roger.lock settings.lua errors / warnings
+omarchy plugin list --json | jq '.[] | select(.id | startswith("senysisu."))'
+journalctl --user -g senysisu.lock          # senysisu.lock settings.lua errors / warnings
 qs log -p "$OMARCHY_PATH/shell" --tail 100
 omarchy plugin validate ~/.config/omarchy/plugins/<plugin-id>
 omarchy-shell shell debugBarGeometry | jq '.[] | select(.id == "<plugin-id>")'

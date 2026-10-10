@@ -12,7 +12,7 @@ import "Model.js" as Model
 // button and forwards open/close/toggle lifecycle in and out.
 Panel {
   id: root
-  moduleName: "roger.lte"
+  moduleName: "senysisu.lte"
   manageIpc: false
 
   property var anchorItem: null

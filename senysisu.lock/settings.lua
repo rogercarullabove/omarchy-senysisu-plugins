@@ -1,9 +1,9 @@
--- Lock screen settings for roger.lock.
+-- Lock screen settings for senysisu.lock.
 -- Saved changes apply live; no shell restart needed. Preview without locking:
 --   omarchy-shell lock preview
 -- Any setting you delete (or set to nil) falls back to its default. If this
 -- file has an error, the lock screen uses the defaults and logs a warning
--- (journalctl --user -g roger.lock).
+-- (journalctl --user -g senysisu.lock).
 --
 -- Sizes and positions given as fractions are relative to the screen height,
 -- so 0.10 means 10% of the screen. Colors are "#rrggbb" hex, or nil to follow

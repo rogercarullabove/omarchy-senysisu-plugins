@@ -13,7 +13,7 @@
 # connection here has autoconnect=yes with unlimited retries, so
 # NetworkManager immediately re-enables a modem disabled via mmcli. `nmcli
 # radio wwan` is the layer NM itself respects as explicit user intent (see
-# roger.lte's Panel.qml for the same lesson learned there).
+# senysisu.lte's Panel.qml for the same lesson learned there).
 set -uo pipefail
 
 STATE_FILE="$HOME/.local/state/omarchy-airplane-mode.json"

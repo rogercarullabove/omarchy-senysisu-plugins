@@ -63,13 +63,13 @@ Item {
         try {
           root.settings = JSON.parse(text)
         } catch (e) {
-          console.warn("roger.lock: could not parse settings: " + e)
+          console.warn("senysisu.lock: could not parse settings: " + e)
         }
       }
     }
     stderr: StdioCollector {
       waitForEnd: true
-      onStreamFinished: if (String(text || "").trim().length > 0) console.warn("roger.lock: settings.lua error, using defaults: " + text.trim())
+      onStreamFinished: if (String(text || "").trim().length > 0) console.warn("senysisu.lock: settings.lua error, using defaults: " + text.trim())
     }
     onExited: function(exitCode) { if (exitCode !== 0) root.settings = ({}) }
   }
@@ -185,7 +185,7 @@ Item {
     if (!Array.isArray(value)) return []
     return value.filter(function(name) {
       var known = name === "battery" || name === "wifi"
-      if (!known) console.warn("roger.lock: unknown corner indicator '" + name + "' (use \"battery\" or \"wifi\")")
+      if (!known) console.warn("senysisu.lock: unknown corner indicator '" + name + "' (use \"battery\" or \"wifi\")")
       return known
     })
   }

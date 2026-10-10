@@ -7,8 +7,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "roger.airplane-mode"
-  ipcTarget: "roger.airplane-mode"
+  moduleName: "senysisu.airplane-mode"
+  ipcTarget: "senysisu.airplane-mode"
 
   property var info: Model.parseRadioStatus("")
 

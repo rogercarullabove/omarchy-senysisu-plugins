@@ -1,6 +1,6 @@
 #!/bin/bash
 # Prints current WiFi / WWAN(LTE) / Bluetooth radio states as one JSON
-# object, for the roger.airplane-mode plugin's bar icon and tooltip.
+# object, for the senysisu.airplane-mode plugin's bar icon and tooltip.
 # "airplaneOn" is derived (all three off), not stored anywhere, so the icon
 # stays accurate even if the user changes a radio outside this plugin.
 

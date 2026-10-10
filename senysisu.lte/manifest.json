@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "roger.lte",
+  "id": "senysisu.lte",
   "name": "LTE Modem",
   "version": "1.0.0",
-  "author": "Roger",
+  "author": "senysisu",
   "license": "MIT",
   "description": "Signal-bar icon and detail panel for the LTE modem (via mmcli), with an enable/disable toggle.",
   "kinds": [

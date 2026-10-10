@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# roger.lock/install.sh [--uninstall]
+# senysisu.lock/install.sh [--uninstall]
 #
-# Installs the roger.lock lock screen: copies this folder's plugin files to
-# ~/.config/omarchy/plugins/roger.lock (keeping an existing settings.lua),
+# Installs the senysisu.lock lock screen: copies this folder's plugin files to
+# ~/.config/omarchy/plugins/senysisu.lock (keeping an existing settings.lua),
 # validates it, swaps it in for the built-in omarchy.lock, restarts the
 # shell, and confirms. --uninstall swaps back to omarchy.lock and leaves the
 # installed files in place.
@@ -11,12 +11,12 @@
 # If anything fails after the built-in lock was disabled, it is re-enabled,
 # so the machine is never left without a lock screen.
 #
-# Also reachable through the repo's shared installer: ./install.sh roger.lock
+# Also reachable through the repo's shared installer: ./install.sh senysisu.lock
 #
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ID="roger.lock"
+PLUGIN_ID="senysisu.lock"
 PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
 PLUGIN_FILES=(manifest.json Service.qml LockView.qml WeatherBackdrop.qml settings-loader.lua README.md)
 
@@ -31,7 +31,7 @@ restore_builtin() {
 
 confirm() {
     if command -v jq >/dev/null 2>&1; then
-        omarchy plugin list --json | jq -c '.[] | select(.id == "omarchy.lock" or .id == "roger.lock") | {id, enabled}'
+        omarchy plugin list --json | jq -c '.[] | select(.id == "omarchy.lock" or .id == "senysisu.lock") | {id, enabled}'
     else
         omarchy plugin list | grep -i lock
     fi

@@ -1,4 +1,4 @@
-# My Lock Screen (`roger.lock`)
+# My Lock Screen (`senysisu.lock`)
 
 A customized copy of Omarchy's built-in lock screen (`omarchy.lock`), created
 with `omarchy plugin clone omarchy.lock` on 2026-10-10.
@@ -8,11 +8,11 @@ with `omarchy plugin clone omarchy.lock` on 2026-10-10.
 From a clone of this repo:
 
 ```bash
-./install.sh roger.lock          # or: ./roger.lock/install.sh
+./install.sh senysisu.lock          # or: ./senysisu.lock/install.sh
 ```
 
 The installer checks requirements (`lua`, `curl`, `jq`, the Adwaita Sans
-font), copies the plugin to `~/.config/omarchy/plugins/roger.lock/` (keeping
+font), copies the plugin to `~/.config/omarchy/plugins/senysisu.lock/` (keeping
 an existing `settings.lua`), swaps it in for `omarchy.lock`, and restarts the
 shell. If anything fails after the built-in lock was disabled, it re-enables
 it, so you're never left without a lock screen. Re-run it to update.
@@ -80,7 +80,7 @@ the theme.
 - **A wrongly typed option** (e.g. `size = "big"`) uses that option's default.
 - **A broken file** (Lua syntax or runtime error) makes the lock screen use
   all defaults; it keeps working. See the error with
-  `journalctl --user -g roger.lock`.
+  `journalctl --user -g senysisu.lock`.
 - Being Lua, the file can compute values (e.g. `size = 0.19 * 1.1`).
 
 How it works: `LockView.qml` watches `settings.lua`, runs it through
@@ -145,13 +145,13 @@ Lock for real: `Super+Ctrl+L` or `omarchy system lock`.
 ## Disable this lock and go back to the original
 
 ```bash
-./install.sh roger.lock --uninstall
+./install.sh senysisu.lock --uninstall
 ```
 
 or by hand:
 
 ```bash
-omarchy plugin disable roger.lock
+omarchy plugin disable senysisu.lock
 omarchy plugin enable omarchy.lock
 omarchy restart shell
 ```
@@ -166,14 +166,14 @@ To switch back to this custom lock later:
 
 ```bash
 omarchy plugin disable omarchy.lock
-omarchy plugin enable roger.lock
+omarchy plugin enable senysisu.lock
 omarchy restart shell
 ```
 
 To delete it entirely (after disabling it as above):
 
 ```bash
-omarchy plugin remove roger.lock
+omarchy plugin remove senysisu.lock
 ```
 
 ## Caveat: Omarchy updates
@@ -185,5 +185,5 @@ renaming this folder) and re-apply the changes above. The original source is in
 `/usr/share/omarchy/shell/plugins/lock/` for comparison:
 
 ```bash
-diff /usr/share/omarchy/shell/plugins/lock/LockView.qml ~/.config/omarchy/plugins/roger.lock/LockView.qml
+diff /usr/share/omarchy/shell/plugins/lock/LockView.qml ~/.config/omarchy/plugins/senysisu.lock/LockView.qml
 ```

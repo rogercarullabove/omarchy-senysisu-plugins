@@ -12,7 +12,7 @@ import qs.Ui
 // first-party omarchy.weather/omarchy.clock plugins.
 BarWidget {
   id: root
-  moduleName: "roger.lte"
+  moduleName: "senysisu.lte"
 
   function injectPanel() {
     var target = panelLoader.item
@@ -68,7 +68,7 @@ BarWidget {
   }
 
   IpcHandler {
-    target: "roger.lte"
+    target: "senysisu.lte"
 
     function open(): void { root.open() }
     function close(): void { root.close() }
