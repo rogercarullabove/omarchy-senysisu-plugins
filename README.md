@@ -88,8 +88,9 @@ state, and ping, plus a power toggle.
 A customized clone of Omarchy's built-in lock screen: stacked poster clock
 with date, weather line, battery and Wi-Fi indicators placeable in any
 corner, a show-password toggle, a pill password field, and weather effects
-(color grading per weather/day/night, layered rain, storms with lightning,
-snow) that follow the real weather or can be set by hand. Everything is set
+(color grading per weather/day/night, layered rain whose nearest layer
+passes in front of the clock, storms with lightning, snow) that follow the
+real weather or can be set by hand. Everything is set
 from `roger.lock/settings.lua`, which applies live on save. Colors follow the
 current Omarchy theme.
 

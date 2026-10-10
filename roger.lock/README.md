@@ -93,9 +93,9 @@ How it works: `LockView.qml` watches `settings.lua`, runs it through
 |---|---|---|
 | `sunny` (day) | faint breathing sun glow, a few warm motes | a bit warmer |
 | `cloudy` | — | a bit desaturated |
-| `rain` | fine streaks in three depth layers, gently gusting wind | desaturated, slightly darker |
+| `rain` | fine streaks in three depth layers (the nearest passes in front of the clock and password box), gently gusting wind | desaturated, slightly darker |
 | `storm` | ~4× denser, wind-driven rain that surges in sheets, lightning | desaturated, darker |
-| `snow` | drifting, wobbling flakes | a bit desaturated, slightly cool |
+| `snow` | drifting, wobbling flakes, plus a few big soft near flakes in front of the clock | a bit desaturated, slightly cool |
 | `snowstorm` | dense wind-driven snow, frosty edges | desaturated, cooler |
 | night (any weather) | nothing extra; `sunny` at night is a clear night with no sun elements | cooler, a bit desaturated, a bit darker |
 
@@ -111,12 +111,18 @@ How it works: `LockView.qml` watches `settings.lua`, runs it through
   are in the weather location's time zone, so a `weather.location` in another
   time zone shifts day/night by the difference.
 - **`intensity`** scales how much rain/snow falls (0.1–2.0).
+- **Depth:** `WeatherBackdrop.qml` is used twice — behind the clock (far and
+  mid rain, regular snow, sun glow, frost, lightning) and in front of
+  everything (only the nearest rain streaks and snowflakes, no input). The
+  front copy follows the back copy's wind and gusts so both slant alike. It's
+  deliberately subtle: pale near particles almost vanish over the light
+  clock digits, as real rain does in front of something bright.
 - Changes to `effects` apply live like every other setting.
 
 Cost: moving effects make the shell redraw continuously while the lock
 screen is shown. Measured with the preview open (share of one core):
-`off` / `cloudy` / clear night ~1–2%, `sunny` day ~24%, `rain` ~24%,
-`storm` ~28%, `snowstorm` ~32%.
+`off` / `cloudy` / clear night ~1–2%, `sunny` day ~24%, `rain` ~25%,
+`snow` ~26%, `storm` ~29%, `snowstorm` ~34%.
 
 ## Applying code changes
 

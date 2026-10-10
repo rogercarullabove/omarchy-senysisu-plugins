@@ -346,6 +346,7 @@ Item {
     }
 
     WeatherBackdrop {
+      id: weatherBack
       anchors.fill: parent
       kind: root.effectKind
       night: root.effectNight
@@ -609,6 +610,17 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
       }
+    }
+
+    // Nearest rain/snow, drawn over the clock and password box. Follows the
+    // back layer's wind; takes no input (WeatherBackdrop sets enabled: false).
+    WeatherBackdrop {
+      anchors.fill: parent
+      front: true
+      driver: weatherBack
+      kind: root.effectKind
+      night: root.effectNight
+      intensity: root.opt("effects", "intensity", 1.0)
     }
   }
 }

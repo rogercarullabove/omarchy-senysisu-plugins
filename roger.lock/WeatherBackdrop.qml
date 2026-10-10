@@ -12,6 +12,14 @@ Item {
   property string kind: ""            // sunny | cloudy | rain | storm | snow | snowstorm
   property bool night: false
   property real intensity: 1.0
+  // Two instances are used: the back one (behind the clock) draws
+  // everything; the front one (above everything, no input) draws only the
+  // nearest rain/snow so it passes in front of the text and password box.
+  property bool front: false
+  // The front instance follows the back one's wind/gusts so both slant alike.
+  property Item driver: null
+  readonly property real windNow: driver ? driver.wind : wind
+  readonly property real surgeNow: driver ? driver.surge : surge
 
   readonly property bool rainy: kind === "rain" || kind === "storm"
   readonly property bool snowy: kind === "snow" || kind === "snowstorm"
@@ -29,7 +37,7 @@ Item {
   Shape {
     id: glow
     anchors.fill: parent
-    visible: backdrop.kind === "sunny" && !backdrop.night   // clear nights are just color grading
+    visible: !backdrop.front && backdrop.kind === "sunny" && !backdrop.night   // clear nights are just color grading
     preferredRendererType: Shape.CurveRenderer
     opacity: 0.0
 
@@ -62,7 +70,7 @@ Item {
   Shape {
     id: frost
     anchors.fill: parent
-    visible: backdrop.kind === "snowstorm"
+    visible: !backdrop.front && backdrop.kind === "snowstorm"
     preferredRendererType: Shape.CurveRenderer
     ShapePath {
       strokeWidth: -1
@@ -95,7 +103,7 @@ Item {
     anchors.fill: parent
     // Only tick when some emitter can be active; an idle running system still
     // forces a redraw every frame.
-    running: backdrop.visible && (backdrop.rainy || backdrop.snowy || (backdrop.kind === "sunny" && !backdrop.night))
+    running: backdrop.visible && (backdrop.rainy || backdrop.snowy || (!backdrop.front && backdrop.kind === "sunny" && !backdrop.night))
   }
 
   // Drop the previous weather's particles and
@@ -119,7 +127,7 @@ Item {
   Emitter {
     system: sys
     group: "mote"
-    enabled: backdrop.kind === "sunny" && !backdrop.night
+    enabled: !backdrop.front && backdrop.kind === "sunny" && !backdrop.night
     width: backdrop.width; height: backdrop.height
     emitRate: 1.2 * backdrop.k
     lifeSpan: 10000; lifeSpanVariation: 3000
@@ -135,7 +143,7 @@ Item {
   property real wind: storm ? 24 : 4
   SequentialAnimation on wind {
     id: windGusts
-    running: backdrop.rainy && backdrop.visible
+    running: !backdrop.driver && backdrop.rainy && backdrop.visible
     loops: Animation.Infinite
     NumberAnimation { to: backdrop.storm ? 34 : 7; duration: backdrop.storm ? 2500 : 4000; easing.type: Easing.InOutSine }
     NumberAnimation { to: backdrop.storm ? 18 : 1; duration: backdrop.storm ? 3500 : 6000; easing.type: Easing.InOutSine }
@@ -145,14 +153,14 @@ Item {
   property real surge: 1.0
   SequentialAnimation on surge {
     id: surgeGusts
-    running: backdrop.storm && backdrop.visible
+    running: !backdrop.driver && backdrop.storm && backdrop.visible
     loops: Animation.Infinite
     NumberAnimation { to: 1.6; duration: 1800; easing.type: Easing.InOutSine }
     NumberAnimation { to: 0.8; duration: 3200; easing.type: Easing.InOutSine }
     NumberAnimation { to: 1.3; duration: 2400; easing.type: Easing.InOutSine }
     NumberAnimation { to: 1.0; duration: 2600; easing.type: Easing.InOutSine }
   }
-  readonly property real rainRate: (storm ? 4.0 * surge : 1.0) * k
+  readonly property real rainRate: (storm ? 4.0 * surgeNow : 1.0) * k
   readonly property real rainSpeed: storm ? 1.35 : 1.0
   readonly property real rainDim: night ? 0.7 : 1.0
 
@@ -166,13 +174,13 @@ Item {
   Emitter {
     system: sys
     group: "rainFar"
-    enabled: backdrop.rainy
+    enabled: !backdrop.front && backdrop.rainy
     x: -backdrop.width * 0.1; y: -40
     width: backdrop.width * 1.7; height: 1
     emitRate: 160 * backdrop.rainRate
     lifeSpan: 2200
     size: backdrop.storm ? 28 : 20; sizeVariation: 8
-    velocity: AngleDirection { angle: 90 + backdrop.wind * 0.8; angleVariation: 4; magnitude: 650 * backdrop.rainSpeed; magnitudeVariation: 120 }
+    velocity: AngleDirection { angle: 90 + backdrop.windNow * 0.8; angleVariation: 4; magnitude: 650 * backdrop.rainSpeed; magnitudeVariation: 120 }
   }
 
   ImageParticle {
@@ -185,13 +193,13 @@ Item {
   Emitter {
     system: sys
     group: "rainMid"
-    enabled: backdrop.rainy
+    enabled: !backdrop.front && backdrop.rainy
     x: -backdrop.width * 0.1; y: -80
     width: backdrop.width * 1.7; height: 1
     emitRate: 80 * backdrop.rainRate
     lifeSpan: 1400
     size: backdrop.storm ? 64 : 44; sizeVariation: 14
-    velocity: AngleDirection { angle: 90 + backdrop.wind; angleVariation: 3; magnitude: 1100 * backdrop.rainSpeed; magnitudeVariation: 200 }
+    velocity: AngleDirection { angle: 90 + backdrop.windNow; angleVariation: 3; magnitude: 1100 * backdrop.rainSpeed; magnitudeVariation: 200 }
   }
 
   ImageParticle {
@@ -204,13 +212,13 @@ Item {
   Emitter {
     system: sys
     group: "rainNear"
-    enabled: backdrop.rainy
+    enabled: backdrop.front && backdrop.rainy
     x: -backdrop.width * 0.1; y: -200
     width: backdrop.width * 1.7; height: 1
     emitRate: 9 * backdrop.rainRate
     lifeSpan: 900
     size: backdrop.storm ? 200 : 150; sizeVariation: 50
-    velocity: AngleDirection { angle: 90 + backdrop.wind * 1.3; angleVariation: 2; magnitude: 2000 * backdrop.rainSpeed; magnitudeVariation: 300 }
+    velocity: AngleDirection { angle: 90 + backdrop.windNow * 1.3; angleVariation: 2; magnitude: 2000 * backdrop.rainSpeed; magnitudeVariation: 300 }
   }
 
   // Snow: soft flakes that wobble; a snowstorm is dense and wind-driven.
@@ -223,7 +231,7 @@ Item {
   Emitter {
     system: sys
     group: "snow"
-    enabled: backdrop.snowy
+    enabled: !backdrop.front && backdrop.snowy
     x: backdrop.kind === "snowstorm" ? -backdrop.width * 0.8 : -40
     y: -40
     width: backdrop.kind === "snowstorm" ? backdrop.width * 1.8 : backdrop.width + 80
@@ -239,9 +247,36 @@ Item {
       magnitudeVariation: backdrop.kind === "snowstorm" ? 160 : 35
     }
   }
+  // Near snow (front instance): bigger, softer, faster, fewer flakes.
+  ImageParticle {
+    system: sys
+    groups: ["snowNear"]
+    source: backdrop.asset("soft-dot.png")
+    color: backdrop.tint("#ffffff", backdrop.night ? 0.35 : 0.5)
+  }
+  Emitter {
+    system: sys
+    group: "snowNear"
+    enabled: backdrop.front && backdrop.snowy
+    x: backdrop.kind === "snowstorm" ? -backdrop.width * 0.8 : -60
+    y: -60
+    width: backdrop.kind === "snowstorm" ? backdrop.width * 1.8 : backdrop.width + 120
+    height: 1
+    emitRate: (backdrop.kind === "snowstorm" ? 22 : 4) * backdrop.k
+    lifeSpan: backdrop.kind === "snowstorm" ? 2600 : 6000
+    startTime: lifeSpan
+    size: 24; sizeVariation: 10
+    velocity: AngleDirection {
+      angle: backdrop.kind === "snowstorm" ? 55 : 90
+      angleVariation: backdrop.kind === "snowstorm" ? 10 : 15
+      magnitude: backdrop.kind === "snowstorm" ? 820 : 170
+      magnitudeVariation: backdrop.kind === "snowstorm" ? 200 : 50
+    }
+  }
+
   Wander {
     system: sys
-    groups: ["snow"]
+    groups: ["snow", "snowNear"]
     xVariance: 60
     pace: 60
   }
@@ -263,7 +298,7 @@ Item {
   }
 
   Timer {
-    running: backdrop.kind === "storm" && backdrop.visible
+    running: !backdrop.front && backdrop.kind === "storm" && backdrop.visible
     repeat: true
     interval: 7000
     onTriggered: {
