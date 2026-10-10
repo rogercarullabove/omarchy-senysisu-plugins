@@ -21,6 +21,7 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
     echo "Usage: $0 <roger.airplane-mode|roger.lte> [--after <widget-id>]" >&2
+    echo "       $0 roger.lock [--uninstall]" >&2
     exit 1
 }
 
@@ -30,6 +31,11 @@ shift || true
 
 PLUGIN_SRC="$SRC_DIR/$PLUGIN_ID"
 [[ -d "$PLUGIN_SRC" ]] || { echo "Unknown plugin: $PLUGIN_ID (looked for $PLUGIN_SRC)" >&2; exit 1; }
+
+# Plugins that aren't bar widgets (e.g. roger.lock) ship their own installer.
+if [[ -f "$PLUGIN_SRC/install.sh" ]]; then
+    exec bash "$PLUGIN_SRC/install.sh" "$@"
+fi
 
 AFTER=""
 if [[ "${1:-}" == "--after" ]]; then

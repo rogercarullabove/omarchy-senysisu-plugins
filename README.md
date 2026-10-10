@@ -1,27 +1,29 @@
-# Omarchy bar-widget plugins
+# Omarchy plugins
 
-Personal Quickshell bar-widget plugins for [Omarchy](https://omarchy.org/),
-kept together here because they share the same install shape and the same
-hard-won lessons about how Omarchy's plugin system actually works
+Personal Quickshell shell plugins for [Omarchy](https://omarchy.org/): bar
+widgets plus a custom lock screen, kept together here because they share the
+same hard-won lessons about how Omarchy's plugin system actually works
 (regardless of what a plugin does, that part is identical).
 
 Machine-specific hardware bootstrapping (e.g. the Intel XMM7560 modem's SIM
 slot fix and systemd unit) lives separately in `dragonfly-lte-setup`, not
-here — this repo is just the portable bar widgets, installable on any
-Omarchy machine.
+here — this repo is just the portable plugins, installable on any Omarchy
+machine.
 
 ## Quick start
 
 ```bash
 git clone <this repo>
-cd omarchy-bar-plugins
+cd omarchy-plugins
 chmod +x install.sh
 ./install.sh roger.airplane-mode --after omarchy.weather
 ./install.sh roger.lte
+./install.sh roger.lock
 ```
 
-`--after <widget-id>` is optional for any plugin — omit it to just append
-the widget to its manifest's `defaultSection`.
+`--after <widget-id>` is optional for any bar widget — omit it to just
+append the widget to its manifest's `defaultSection`. `roger.lock` isn't a
+bar widget: `install.sh` hands it off to `roger.lock/install.sh` (see below).
 
 ## What's in here
 
@@ -30,8 +32,10 @@ the widget to its manifest's `defaultSection`.
 | `install.sh` | Shared installer for any plugin in this repo — see Quick start |
 | `roger.airplane-mode/` | One-tap toggle for WiFi + Bluetooth + LTE together |
 | `roger.lte/` | Signal-bar icon + detail panel for the LTE modem (via `mmcli`), with its own enable/disable toggle |
+| `roger.lock/` | Custom lock screen (replaces `omarchy.lock`), configured from a Lua file — see its own README |
 
-Each plugin directory is a self-contained, installable unit:
+Each plugin directory is a self-contained, installable unit. The bar
+widgets share this shape:
 
 ```
 roger.<name>/
@@ -78,6 +82,25 @@ state, and ping, plus a power toggle.
   bar icon button; `Panel.qml` is loaded into it and owns the modem
   poll/toggle logic and the popup. Supports `omarchy-shell shell
   summon|hide|toggle roger.lte` via `BarWidget.qml`'s `IpcHandler`.
+
+## roger.lock
+
+A customized clone of Omarchy's built-in lock screen: stacked poster clock
+with date, weather line, battery and Wi-Fi indicators placeable in any
+corner, a show-password toggle, and a pill password field. Everything is set
+from `roger.lock/settings.lua`, which applies live on save. Colors follow the
+current Omarchy theme.
+
+It's a different shape from the bar widgets — a `service` plugin with
+`Service.qml` (locking + PAM, unchanged from Omarchy) and `LockView.qml` (the
+UI) — so it ships its own `roger.lock/install.sh`, which the shared
+`install.sh` hands off to whenever a plugin folder has one. That installer
+keeps an existing `settings.lua`, swaps the plugin in for `omarchy.lock`, and
+re-enables `omarchy.lock` if anything fails, so the machine is never left
+without a lock screen. `./install.sh roger.lock --uninstall` switches back.
+
+Full details (settings reference, layout, caveats):
+[`roger.lock/README.md`](roger.lock/README.md).
 
 ## Lessons learned building these (apply to any future plugin here)
 
@@ -144,10 +167,38 @@ running `quickshell` process, it can just mean the bar's own WiFi/Bluetooth
 switch was clicked by a person at the same machine — not a background
 reconciliation loop. Confirm the actual actor before assuming a bug.
 
+**7. A cloned built-in keeps its privileges; that's what makes a custom lock
+screen possible.** `omarchy plugin clone omarchy.lock` writes
+`omarchy.clonedFrom` into the clone's manifest, and the shell copies the
+source's trusted capabilities (here `authentication`, i.e. PAM access) onto
+the clone and routes the built-in's IPC target (`omarchy-shell lock ...`) to
+it. A from-scratch third-party plugin declaring `authentication` itself gets
+nothing — keep `clonedFrom` intact when editing the manifest.
+
+**8. Authentication plugins don't hot-reload their code.** Saving a `.qml`
+file logs "Local plugin changed, reloading" but the running lock service is
+kept (the shell refuses to create a second auth service), so the old UI keeps
+showing. `omarchy restart shell` is required after code changes. Data the
+plugin reads at runtime (like `roger.lock/settings.lua`, watched with a
+`FileView`) does update live.
+
+**9. Test the lock screen with its preview, not by locking.**
+`omarchy-shell lock preview` shows the real lock UI as an overlay without
+locking the session (click or `omarchy-shell lock hidePreview` to close), so
+it can be screenshotted with `grim` and iterated on safely. A broken lock UI
+behind a real session lock is much harder to get out of.
+
+**10. In QML, `visible` reads the *effective* visibility, parent included.**
+Binding a `Loader`'s `visible` to `item.visible` made every corner indicator
+permanently invisible: hiding the Loader hides its item, which keeps the
+Loader hidden. Bind to the underlying condition instead (e.g.
+`modelData !== "battery" || root.batteryPresent`).
+
 ## Debugging, if something doesn't load
 
 ```bash
-omarchy plugin list --json | jq '.[] | select(.id == "roger.airplane-mode" or .id == "roger.lte")'
+omarchy plugin list --json | jq '.[] | select(.id | startswith("roger."))'
+journalctl --user -g roger.lock          # roger.lock settings.lua errors / warnings
 qs log -p "$OMARCHY_PATH/shell" --tail 100
 omarchy plugin validate ~/.config/omarchy/plugins/<plugin-id>
 omarchy-shell shell debugBarGeometry | jq '.[] | select(.id == "<plugin-id>")'

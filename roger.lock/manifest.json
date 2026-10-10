@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "roger.lock",
+  "name": "My Lock Screen",
+  "version": "1.0.0",
+  "author": "Roger",
+  "description": "Customized Omarchy lock screen: stacked clock, weather, configurable corner indicators (battery, Wi-Fi), show-password toggle, all set from settings.lua. Cloned from omarchy.lock; same PAM password and fingerprint flows.",
+  "omarchy": {
+    "capabilities": [
+      "authentication"
+    ],
+    "clonedFrom": "omarchy.lock"
+  },
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}
