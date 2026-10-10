@@ -23,6 +23,9 @@ Item {
   property bool showPassword: false
   property date now: new Date()
   property string weatherText: ""
+  property string weatherCondition: ""   // wttr.in condition text, e.g. "Light rain"
+  property string sunrise: ""            // "HH:mm:ss", location local time
+  property string sunset: ""
 
   // Settings from settings.lua next to this file, converted to JSON by
   // settings-loader.lua. Watched, so saved edits apply live. Any missing,
@@ -75,6 +78,62 @@ Item {
   readonly property bool revealEnabled: opt("password", "reveal_toggle", true)
   readonly property bool weatherEnabled: opt("weather", "enabled", true)
   readonly property string weatherLocation: opt("weather", "location", "")
+
+  // ---- Weather effects: off, auto (from the fetched condition) or manual.
+  readonly property var effectKinds: ["sunny", "cloudy", "rain", "storm", "snow", "snowstorm"]
+  readonly property string effectMode: opt("effects", "mode", "auto")
+  readonly property string effectKind: {
+    if (effectMode === "manual") {
+      var manual = opt("effects", "weather", "rain")
+      return effectKinds.indexOf(manual) !== -1 ? manual : ""
+    }
+    return effectMode === "auto" ? conditionToKind(weatherCondition) : ""
+  }
+  readonly property bool effectNight: {
+    var forced = settings && settings.effects ? settings.effects.night : undefined
+    if (typeof forced === "boolean") return forced
+    var t = Qt.formatDateTime(now, "HH:mm:ss")
+    if (sunrise.length > 0 && sunset.length > 0) return t < sunrise || t >= sunset
+    var hour = now.getHours()
+    return hour < 7 || hour >= 19
+  }
+  // Weather is fetched for the top line and/or for automatic effects/night.
+  readonly property bool weatherNeeded: weatherEnabled || effectMode === "auto"
+    || (effectMode === "manual" && !(settings && settings.effects && typeof settings.effects.night === "boolean"))
+
+  // Color grade applied to the blurred wallpaper itself (not an overlay):
+  // [saturation, brightness, tint color, tint amount] per weather. Night
+  // makes any weather cooler, less saturated and darker.
+  readonly property var grade: {
+    var g = ({
+      sunny:     [ 0.05,  0.02, "#ffa040", 0.20],
+      cloudy:    [-0.30, -0.02, "#ffffff", 0.00],
+      rain:      [-0.35, -0.06, "#ffffff", 0.00],
+      storm:     [-0.45, -0.16, "#ffffff", 0.00],
+      snow:      [-0.25,  0.02, "#a8c4ff", 0.08],
+      snowstorm: [-0.35,  0.00, "#a8c4ff", 0.12]
+    })[effectNight && effectKind === "sunny" ? "" : effectKind] || [0, 0, "#ffffff", 0]  // sunny at night = clear night: no sun grading
+    var result = { saturation: g[0], brightness: g[1], tint: g[2], amount: g[3] }
+    if (effectKind !== "" && effectNight) {
+      result.saturation -= 0.20
+      result.brightness -= 0.15
+      result.tint = "#4a6cff"
+      result.amount = Math.max(result.amount, 0.16)
+    }
+    return result
+  }
+
+  function conditionToKind(text) {
+    var t = String(text || "").toLowerCase()
+    if (t.length === 0) return ""
+    if (/thunder/.test(t)) return "storm"
+    if (/blizzard|blowing snow|heavy snow/.test(t)) return "snowstorm"
+    if (/snow|sleet|ice pellets/.test(t)) return "snow"
+    if (/rain|drizzle|shower/.test(t)) return "rain"
+    if (/cloud|overcast|fog|mist|haze/.test(t)) return "cloudy"
+    if (/sun|clear/.test(t)) return "sunny"
+    return ""
+  }
   readonly property int infoFontSize: Math.max(11, Math.round(Style.font.heading * 0.7))
   readonly property var battery: UPower.displayDevice
   readonly property bool batteryPresent: !!(battery && battery.isPresent)
@@ -161,7 +220,7 @@ Item {
     command: ["bash", "-c",
       "q=\"$1\"; f=\"$HOME/.local/state/omarchy/settings/weather.json\"; "
       + "[[ -n $q ]] || q=$(jq -r 'if (.latitude and .longitude) then \"\\(.latitude),\\(.longitude)\" else (.name // \"\") end' \"$f\" 2>/dev/null); "
-      + "curl -fsS --max-time 8 \"https://wttr.in/${q// /+}?format=%l|%c|%C|%t\"",
+      + "curl -fsS --max-time 8 \"https://wttr.in/${q// /+}?format=%l|%c|%C|%t|%S|%s\"",
       "weather", root.weatherLocation]
     stdout: StdioCollector {
       waitForEnd: true
@@ -171,6 +230,9 @@ Item {
         var place = parts[0].split(",").map(function(p) { return p.trim() })
         var label = place.length > 1 ? place[place.length - 1] + ", " + place[0] : place[0]
         root.weatherText = label + " " + parts[1].trim() + "   " + parts[2].trim() + " " + parts[3].trim()
+        root.weatherCondition = parts[2].trim()
+        root.sunrise = parts.length > 5 ? parts[4].trim() : ""
+        root.sunset = parts.length > 5 ? parts[5].trim() : ""
       }
     }
   }
@@ -178,7 +240,7 @@ Item {
   Timer {
     id: weatherTimer
     interval: Math.max(1, opt("weather", "refresh_minutes", 15)) * 60 * 1000
-    running: root.weatherEnabled
+    running: root.weatherNeeded
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!weatherProc.running) weatherProc.running = true
@@ -186,7 +248,8 @@ Item {
 
   onWeatherLocationChanged: {
     root.weatherText = ""
-    if (weatherEnabled) weatherTimer.restart()
+    root.weatherCondition = ""
+    if (weatherNeeded) weatherTimer.restart()
   }
 
   // Shrink the dots to fit once the password outgrows the field, so every
@@ -272,6 +335,21 @@ Item {
       blurMax: 128
       blurMultiplier: 1.25
       contrast: -0.08
+      saturation: root.grade.saturation
+      brightness: root.grade.brightness
+      colorizationColor: root.grade.tint
+      colorization: root.grade.amount
+      Behavior on saturation { NumberAnimation { duration: 1500 } }
+      Behavior on brightness { NumberAnimation { duration: 1500 } }
+      Behavior on colorization { NumberAnimation { duration: 1500 } }
+      Behavior on colorizationColor { ColorAnimation { duration: 1500 } }
+    }
+
+    WeatherBackdrop {
+      anchors.fill: parent
+      kind: root.effectKind
+      night: root.effectNight
+      intensity: root.opt("effects", "intensity", 1.0)
     }
 
     MouseArea {

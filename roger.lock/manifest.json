@@ -4,7 +4,7 @@
   "name": "My Lock Screen",
   "version": "1.0.0",
   "author": "Roger",
-  "description": "Customized Omarchy lock screen: stacked clock, weather, configurable corner indicators (battery, Wi-Fi), show-password toggle, all set from settings.lua. Cloned from omarchy.lock; same PAM password and fingerprint flows.",
+  "description": "Customized Omarchy lock screen: stacked clock, weather line and weather effects (color grading, rain, storm, snow), configurable corner indicators (battery, Wi-Fi), show-password toggle, all set from settings.lua. Cloned from omarchy.lock; same PAM password and fingerprint flows.",
   "omarchy": {
     "capabilities": [
       "authentication"

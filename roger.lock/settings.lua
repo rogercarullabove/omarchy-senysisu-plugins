@@ -65,6 +65,14 @@ return {
     reveal_toggle = true,   -- eye icon + Ctrl+R to show the password
   },
 
+  -- Weather effects on the lock screen.
+  effects = {
+    mode = "auto",          -- "off", "auto" (follow the current weather) or "manual"
+    weather = "rain",       -- manual mode: "sunny", "cloudy", "rain", "storm", "snow" or "snowstorm"
+    night = "auto",         -- "auto" (from sunrise/sunset), true or false (no quotes)
+    intensity = 1.0,        -- 0.1 to 2.0; scales how much rain/snow falls
+  },
+
   background = {
     blur = 0.50,             -- 0.0 = sharp wallpaper, 1.0 = fully blurred
   },

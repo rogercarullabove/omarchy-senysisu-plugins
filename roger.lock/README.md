@@ -19,8 +19,9 @@ it, so you're never left without a lock screen. Re-run it to update.
 
 ## What's different from the original
 
-Changes are in `LockView.qml`, plus `settings.lua` / `settings-loader.lua`
-for configuration. `Service.qml` (locking, PAM password and fingerprint
+Changes are in `LockView.qml` and `WeatherBackdrop.qml` (weather effects,
+with textures in `assets/`), plus `settings.lua` / `settings-loader.lua` for
+configuration. `Service.qml` (locking, PAM password and fingerprint
 authentication) is untouched from the original.
 
 - **Stacked clock** — hours over minutes in a heavy font (`Adwaita Sans`,
@@ -38,6 +39,9 @@ authentication) is untouched from the original.
   Click it or press `Ctrl+R` to toggle. Resets to hidden after each submit.
 - **Password field** — pill-shaped, placed a fixed gap below the clock so it
   never overlaps it.
+- **Weather effects** — the wallpaper is color graded and animated to match
+  the weather, either automatically (from the same wttr.in fetch) or set by
+  hand. See [Weather effects](#weather-effects).
 
 Colors still follow the current theme (`[lock]` section of the theme's
 `shell.toml`, overridable in `~/.config/omarchy/shell.toml`).
@@ -58,6 +62,7 @@ these sections:
 | `battery` | `show_percent`, `low` |
 | `wifi` | `show_name` |
 | `password` | `width`, `height`, `gap`, `placeholder`, `reveal_toggle` |
+| `effects` | `mode` (`"off"`/`"auto"`/`"manual"`), `weather`, `night` (`"auto"`/`true`/`false`), `intensity` |
 | `background` | `blur` |
 
 Corner indicators: each corner takes a list, shown left to right in the order
@@ -81,6 +86,37 @@ the theme.
 How it works: `LockView.qml` watches `settings.lua`, runs it through
 `settings-loader.lua` (converts the returned table to JSON with the system
 `lua`), and reads each option with a built-in default as fallback.
+
+## Weather effects
+
+| Weather | Moving elements | Color grading of the wallpaper |
+|---|---|---|
+| `sunny` (day) | faint breathing sun glow, a few warm motes | a bit warmer |
+| `cloudy` | — | a bit desaturated |
+| `rain` | fine streaks in three depth layers, gently gusting wind | desaturated, slightly darker |
+| `storm` | ~4× denser, wind-driven rain that surges in sheets, lightning | desaturated, darker |
+| `snow` | drifting, wobbling flakes | a bit desaturated, slightly cool |
+| `snowstorm` | dense wind-driven snow, frosty edges | desaturated, cooler |
+| night (any weather) | nothing extra; `sunny` at night is a clear night with no sun elements | cooler, a bit desaturated, a bit darker |
+
+- **`mode = "auto"`** maps wttr.in's condition text: thunder → `storm`,
+  blizzard / heavy or blowing snow → `snowstorm`, snow / sleet → `snow`,
+  rain / drizzle / showers → `rain`, cloud / overcast / fog / mist → `cloudy`,
+  sunny / clear → `sunny`. Anything else shows no effect.
+- **`mode = "manual"`** always uses `weather`; **`"off"`** disables effects
+  and grading entirely.
+- **`night = "auto"`** compares the current time with sunrise/sunset from the
+  same fetch (falls back to 19:00–07:00 when offline). `true`/`false` force it
+  — without quotes; `"false"` is a string and counts as `"auto"`. The times
+  are in the weather location's time zone, so a `weather.location` in another
+  time zone shifts day/night by the difference.
+- **`intensity`** scales how much rain/snow falls (0.1–2.0).
+- Changes to `effects` apply live like every other setting.
+
+Cost: moving effects make the shell redraw continuously while the lock
+screen is shown. Measured with the preview open (share of one core):
+`off` / `cloudy` / clear night ~1–2%, `sunny` day ~24%, `rain` ~24%,
+`storm` ~28%, `snowstorm` ~32%.
 
 ## Applying code changes
 

@@ -18,7 +18,7 @@ set -euo pipefail
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ID="roger.lock"
 PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
-PLUGIN_FILES=(manifest.json Service.qml LockView.qml settings-loader.lua README.md)
+PLUGIN_FILES=(manifest.json Service.qml LockView.qml WeatherBackdrop.qml settings-loader.lua README.md)
 
 command -v omarchy >/dev/null 2>&1 || { echo "omarchy not found — this only installs on Omarchy." >&2; exit 1; }
 
@@ -69,8 +69,15 @@ mkdir -p "$PLUGIN_DIR"
 for file in "${PLUGIN_FILES[@]}"; do
     cp "$SRC_DIR/$file" "$PLUGIN_DIR/"
 done
+rm -rf "$PLUGIN_DIR/assets"
+cp -r "$SRC_DIR/assets" "$PLUGIN_DIR/assets"
 if [[ -f "$PLUGIN_DIR/settings.lua" ]]; then
     echo "    kept existing settings.lua (repo default: $SRC_DIR/settings.lua)"
+    if ! grep -q '^[[:space:]]*effects[[:space:]]*=' "$PLUGIN_DIR/settings.lua"; then
+        echo "    note: your settings.lua has no 'effects' section, so weather effects run"
+        echo "    with their defaults (mode = \"auto\"). Copy that section from the repo"
+        echo "    default to configure them, or set mode = \"off\" there to disable."
+    fi
 else
     cp "$SRC_DIR/settings.lua" "$PLUGIN_DIR/"
     echo "    installed default settings.lua"

@@ -87,13 +87,15 @@ state, and ping, plus a power toggle.
 
 A customized clone of Omarchy's built-in lock screen: stacked poster clock
 with date, weather line, battery and Wi-Fi indicators placeable in any
-corner, a show-password toggle, and a pill password field. Everything is set
+corner, a show-password toggle, a pill password field, and weather effects
+(color grading per weather/day/night, layered rain, storms with lightning,
+snow) that follow the real weather or can be set by hand. Everything is set
 from `roger.lock/settings.lua`, which applies live on save. Colors follow the
 current Omarchy theme.
 
 It's a different shape from the bar widgets — a `service` plugin with
-`Service.qml` (locking + PAM, unchanged from Omarchy) and `LockView.qml` (the
-UI) — so it ships its own `roger.lock/install.sh`, which the shared
+`Service.qml` (locking + PAM, unchanged from Omarchy), `LockView.qml` (the
+UI), `WeatherBackdrop.qml` (effects) and `assets/` (particle textures) — so it ships its own `roger.lock/install.sh`, which the shared
 `install.sh` hands off to whenever a plugin folder has one. That installer
 keeps an existing `settings.lua`, swaps the plugin in for `omarchy.lock`, and
 re-enables `omarchy.lock` if anything fails, so the machine is never left
@@ -193,6 +195,33 @@ Binding a `Loader`'s `visible` to `item.visible` made every corner indicator
 permanently invisible: hiding the Loader hides its item, which keeps the
 Loader hidden. Bind to the underlying condition instead (e.g.
 `modelData !== "battery" || root.batteryPresent`).
+
+**11. `ImageParticle` ignores `alpha` for color.** Qt Quick particles blend
+premultiplied, and in this Qt (6.11) neither `alpha` nor a translucent
+`color` reduces the RGB a particle adds — "faint" white cloud puffs at
+`alpha: 0.07` rendered as solid white. Premultiply the color yourself
+(`Qt.rgba(r*a, g*a, b*a, a)`, see `tint()` in `WeatherBackdrop.qml`); item
+`opacity` also works.
+
+**12. Animation targets inside a running group are read once, at start.**
+In a `SequentialAnimation`, a child's `to:` is evaluated when the whole
+sequence starts, not when that step runs. That made lock-screen raindrops
+"slide" to y = 0 (up the screen), and kept a looping wind animation on
+rain's values after switching to storm. Compute targets before starting,
+and `restart()` looping animations when their inputs change.
+
+**13. A running `ParticleSystem` redraws every frame even with nothing to
+draw,** and a stopped one freezes its particles on screen instead of
+clearing them. Run it only when an emitter can be active, and hide the
+layer (or `reset()` it) when switching effects off.
+
+**14. Iterate on QML visuals outside the shell.** `/usr/lib/qt6/bin/qml
+test.qml` with a `Timer` calling `contentItem.grabToImage(... saveToFile ...)`
+renders a component (e.g. `WeatherBackdrop.qml` with each `kind` side by
+side) to a PNG in seconds, without restarting `omarchy-shell` or touching
+the lock. Use the real shell (`omarchy-shell lock preview` + `grim`) for the
+final check. Note: the preview closes on any click, so CPU measurements
+need it confirmed open (`hyprctl layers -j | grep omarchy-lock-preview`).
 
 ## Debugging, if something doesn't load
 
