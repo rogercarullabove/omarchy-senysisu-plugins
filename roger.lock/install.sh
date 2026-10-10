@@ -56,7 +56,7 @@ for cmd in lua curl jq; do
         missing=1
     fi
 done
-if ! fc-list : family | grep -qi "Adwaita Sans"; then
+if ! fc-list : family | grep -i "Adwaita Sans" >/dev/null; then
     echo "    missing font: Adwaita Sans (clock falls back to another font)"
 fi
 if (( missing )); then
