@@ -10,7 +10,8 @@
 # Plymouth's script engine can't draw variable fonts at a chosen weight, so
 # every piece of text is pre-rendered here with ImageMagick + Pango, matching
 # how senysisu.lock draws it in Qt: the same fonts, sizes and soft shadow,
-# laid out from the lock's own settings.lua and the current theme's colors.
+# laid out from the boot screen's own settings.lua (see SETTINGS_FILE) and
+# the current theme's colors.
 # The wallpaper is blurred to match the lock's background.blur.
 #
 # Sizes are computed for one screen size (default: the focused monitor); the
@@ -21,8 +22,9 @@ set -euo pipefail
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT="${1:?usage: render.sh <out-dir> [width height]}"
 THEME_STATE="$HOME/.local/state/omarchy/current"
-LOCK_DIR="$HOME/.config/omarchy/plugins/senysisu.lock"
-LOCK_SRC="$SRC_DIR/../senysisu.lock"
+# The user's copy (seeded from $SRC_DIR/settings.lua by install.sh), separate
+# from the lock screen's settings.
+SETTINGS_FILE="${SETTINGS_FILE:-$HOME/.config/omarchy/plugins/senysisu.plymouth/settings.lua}"
 
 if [[ $# -ge 3 ]]; then
     SCREEN_W=$2 SCREEN_H=$3
@@ -34,16 +36,17 @@ for cmd in magick lua jq fc-match; do
     command -v "$cmd" >/dev/null || { echo "render.sh: missing $cmd" >&2; exit 1; }
 done
 
-# ---- Lock settings (same defaults as LockView.qml's opt() calls) -------------
+# ---- Settings (defaults match the lock's, as in LockView.qml's opt() calls) --
 
-settings_file="$LOCK_DIR/settings.lua"
-[[ -f $settings_file ]] || settings_file="$LOCK_SRC/settings.lua"
-loader="$LOCK_DIR/settings-loader.lua"
-[[ -f $loader ]] || loader="$LOCK_SRC/settings-loader.lua"
-SETTINGS=$(lua "$loader" "$settings_file" 2>/dev/null) || {
-    echo "    settings.lua has an error; using the lock's defaults" >&2
+settings_file=$SETTINGS_FILE
+[[ -f $settings_file ]] || settings_file="$SRC_DIR/settings.lua"
+echo "    settings: $settings_file"
+if ! SETTINGS=$(lua "$SRC_DIR/../senysisu.lock/settings-loader.lua" "$settings_file" 2>"$OUT.settings-error"); then
+    echo "    $settings_file has an error; using the defaults:" >&2
+    sed 's/^/      /' "$OUT.settings-error" >&2
     SETTINGS='{}'
-}
+fi
+rm -f "$OUT.settings-error"
 
 # opt <section> <key> <default-json>: the setting if it has the default's type.
 opt() {
@@ -126,7 +129,6 @@ FIELD_GAP=$(round "$SCREEN_H * $(opt password gap 0.13)")
 FIELD_RADIUS=$(awk -v r="$(opt password rounding "$(( FIELD_H / 2 ))")" -v h="$FIELD_H" \
     'BEGIN { r = r < 0 ? 0 : r; if (r > h / 2) r = h / 2; printf "%g", r }')
 PLACEHOLDER=$(opt password placeholder '"Enter Password"')
-REVEAL=$(opt password reveal_toggle true)
 BLUR=$(opt background blur 1.0)
 BATTERY_PERCENT=$(opt battery show_percent true)
 BATTERY_LOW=$(opt battery low 15)
@@ -135,14 +137,10 @@ BATTERY_LOW=$(opt battery low 15)
 # whatever fontconfig resolves that to (JetBrainsMono Nerd Font on Omarchy).
 MONO=$(fc-match -f '%{family[0]}' monospace)
 
-# Battery corner: the first corner whose list includes "battery" (the lock
-# reads settings.corners, defaulting to wifi + battery bottom right). Wi-Fi is
-# left out: the network isn't up yet at boot, so it would always read
-# disconnected.
-BATTERY_CORNER=$(jq -r '
-    (.corners // {bottom_right: ["wifi", "battery"]}) as $c
-    | [ "top_left", "top_right", "bottom_left", "bottom_right"][]
-    | select(($c[.] // []) | (if type == "string" then [.] else . end) | index("battery"))' <<<"$SETTINGS" | head -1)
+# Battery corner (empty = hidden). There's no Wi-Fi indicator: the network
+# isn't up yet at boot, so it would always read disconnected.
+BATTERY_CORNER=$(jq -r '(.battery // {}) | if type == "object" and has("corner") then .corner else "bottom_right" end | tostring' <<<"$SETTINGS")
+[[ $BATTERY_CORNER =~ ^(top|bottom)_(left|right)$ ]] || BATTERY_CORNER=""
 
 # ---- Rendering helpers --------------------------------------------------------
 
@@ -245,6 +243,24 @@ for n in $(seq 0 59); do
 done
 line_metrics CLOCK <(text_png - "$clock_desc" "$CLOCK_COLOR" 00) "$CLOCK_FONT" 900 "$CLOCK_PX"
 
+# AM/PM for the 12-hour clock: the tops of the letters level with the tops of
+# the digits (ink, not line boxes), a small gap right of the hours.
+# ink_rows <image>: the first and one-past-last rows at least half covered
+# (where the eye puts an antialiased edge).
+ink_rows() { magick "$1" -alpha extract -threshold 50% -format '%@' info: | awk -F'[x+]' '{ print $4, $4 + $2 }'; }
+AMPM=$([[ $(opt clock hours 24) == 12 && $(opt clock ampm true) == true ]] && echo 1 || echo 0)
+AMPM_PX=$(round "$CLOCK_PX * $(opt clock ampm_size 0.2)"); (( AMPM_PX >= 1 )) || AMPM_PX=1
+AMPM_GAP=$(round "$CLOCK_PX * 0.04")
+ampm_desc="$CLOCK_FONT Black ${AMPM_PX}px @opsz=14"
+# "7" and "M" have flat tops (no overshoot). Pango snaps the small letters to
+# whole pixels, so measure what it draws rather than scaling the digits.
+read -r DIGITS_INK_TOP _ < <(ink_rows <(text_png - "$clock_desc" "$CLOCK_COLOR" 7))
+read -r AMPM_INK_TOP _ < <(ink_rows <(text_png - "$ampm_desc" "$CLOCK_COLOR" M))
+for ap in am pm; do
+    text_png "$THEME/$ap.png" "$ampm_desc" "$CLOCK_COLOR" "${ap^^}"
+    add_shadow "$THEME/$ap.png"
+done
+
 # ---- Date: one image per character (the font is monospaced) ------------------
 
 date_desc="$MONO Bold ${FIELD_FONT}px"
@@ -298,14 +314,9 @@ pill() { # pill <out> <border color>
 pill "$THEME/field.png" "$BORDER_ACTIVE"
 pill "$THEME/field-error.png" "$BORDER_ERROR"
 
-# Text area inside the field: border (3) + padding (18) + the reveal icon's
-# reserved width on both sides, so elision and dot shrinking match the lock.
-reveal_reserve=0
-if [[ $REVEAL == true ]]; then
-    read -r eye_w _ < <(size_of <(text_png - "$MONO $(round "$FIELD_FONT * 1.1")px" "$LOCK_TEXT" "󰈈"))
-    reveal_reserve=$(( eye_w + 12 ))
-fi
-TEXT_AREA_W=$(( FIELD_W - 2 * (3 + 18 + reveal_reserve) ))
+# Text area inside the field: border (3) + padding (18) on both sides. (The
+# lock also reserves room for its show-password eye, which Plymouth can't do.)
+TEXT_AREA_W=$(( FIELD_W - 2 * (3 + 18) ))
 
 # field_text <out> <font_desc> <color> <text>: elided like Qt's ElideRight.
 field_text() {
@@ -348,6 +359,10 @@ rgb() { awk -v n="$1" -v h="${2#\#}" 'BEGIN { split("R G B", c); for (i = 1; i <
     echo "global.DATE_Y_ADJ = $DATE_Y_ADJ;"
     echo "global.DATE_ADVANCE = $DATE_ADVANCE;"
     echo "global.HOUR_PAD = $([[ $(opt clock hour_format '"HH"') =~ ^(HH|hh)$ ]] && echo 1 || echo 0);"
+    echo "global.HOUR_12 = $([[ $(opt clock hours 24) == 12 ]] && echo 1 || echo 0);"
+    echo "global.AMPM = $AMPM;"
+    echo "global.AMPM_GAP = $AMPM_GAP;"
+    echo "global.AMPM_Y = $(( DIGITS_INK_TOP - AMPM_INK_TOP ));"
     echo "global.MINUTE_PAD = $([[ $(opt clock minute_format '"mm"') == m ]] && echo 0 || echo 1);"
     echo "global.FIELD_W = $FIELD_W;"
     echo "global.FIELD_H = $FIELD_H;"

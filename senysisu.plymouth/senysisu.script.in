@@ -84,6 +84,22 @@ fun place_clock_line(sprite, text, y) {
   sprite.SetImage(image);
   sprite.SetPosition(Math.Int((W - image.GetWidth()) / 2), px(y + CLOCK_Y_ADJ - SHADOW_PAD), 10);
   sprite.SetOpacity(1);
+  return image;
+}
+
+// AM/PM right of the hours, letter tops level with the digit tops (AMPM_Y);
+// placed beside the hours image without moving it.
+ampm.sprite = Sprite();
+ampm.sprite.SetOpacity(0);
+fun place_ampm(hours_image, pm) {
+  if (!AMPM) return;
+  if (pm) image = load("pm.png");
+  else image = load("am.png");
+  ampm.sprite.SetImage(image);
+  hours_right = Math.Int((W - hours_image.GetWidth()) / 2) + hours_image.GetWidth() - px(SHADOW_PAD);
+  ampm.sprite.SetPosition(hours_right + px(AMPM_GAP - SHADOW_PAD),
+                          px(hours_y + CLOCK_Y_ADJ + AMPM_Y - SHADOW_PAD), 10);
+  ampm.sprite.SetOpacity(1);
 }
 
 global.shown_minute = -1;
@@ -91,7 +107,13 @@ fun show_time(seconds) {
   minute_of_day = Math.Int(seconds / 60) % (24 * 60);
   if (minute_of_day == global.shown_minute) return;
   global.shown_minute = minute_of_day;
-  place_clock_line(hours.sprite, two_digits(Math.Int(minute_of_day / 60), HOUR_PAD), hours_y);
+  hour = Math.Int(minute_of_day / 60);
+  pm = hour >= 12;
+  if (HOUR_12) {
+    hour = hour % 12;
+    if (hour == 0) hour = 12;
+  }
+  place_ampm(place_clock_line(hours.sprite, two_digits(hour, HOUR_PAD), hours_y), pm);
   place_clock_line(minutes.sprite, two_digits(minute_of_day % 60, MINUTE_PAD), minutes_y);
 }
 

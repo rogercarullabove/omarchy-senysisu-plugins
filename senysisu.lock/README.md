@@ -55,7 +55,7 @@ these sections:
 
 | Section | Options |
 |---|---|
-| `clock` | `font`, `size`, `position`, `line_gap`, `hour_format` (`"HH"`/`"hh"`), `minute_format`, `color` |
+| `clock` | `font`, `size`, `position`, `line_gap`, `hours` (`24`/`12`), `ampm`, `ampm_size`, `hour_format` (`"HH"` padded / `"H"`), `minute_format`, `color` |
 | `date` | `enabled`, `format`, `gap`, `color` |
 | `weather` | `enabled`, `location`, `refresh_minutes` |
 | `corners` | `top_left`, `top_right`, `bottom_left`, `bottom_right`: list of indicators (`"battery"`, `"wifi"`) |

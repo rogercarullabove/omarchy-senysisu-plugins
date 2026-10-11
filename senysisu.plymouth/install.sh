@@ -3,8 +3,12 @@
 # senysisu.plymouth/install.sh [--preview | --uninstall]
 #
 # Installs the senysisu boot screen: the disk-unlock prompt drawn like the
-# senysisu.lock lock screen. Renders the theme from the lock's settings.lua
-# and the current Omarchy theme (as you), then with sudo:
+# senysisu.lock lock screen. Renders the theme from its own settings file,
+#
+#   ~/.config/omarchy/plugins/senysisu.plymouth/settings.lua
+#
+# (created from this folder's settings.lua the first time, separate from the
+# lock screen's) and the current Omarchy theme (as you), then with sudo:
 #
 #   /usr/share/plymouth/themes/senysisu/          the theme
 #   /etc/initcpio/{install,hooks}/senysisu-plymouth   clock feeder hook
@@ -15,10 +19,11 @@
 #
 # selects it, test-builds a throwaway initramfs to check it, and only then
 # rebuilds the real boot images. Re-run after changing the wallpaper, theme
-# or settings.lua — the boot screen is a snapshot of them.
+# or that settings.lua — the boot screen is a snapshot of them.
 #
 #   --preview    show it in a window first (no root, nothing installed)
 #   --uninstall  go back to Omarchy's boot screen and remove everything above
+#                (your settings.lua is kept)
 #
 set -euo pipefail
 
@@ -29,6 +34,17 @@ DROPIN=/etc/mkinitcpio.conf.d/zz-senysisu-plymouth.conf
 PACMAN_HOOK=/etc/pacman.d/hooks/95-senysisu-plymouth.hook
 REAPPLY=/usr/local/lib/senysisu-plymouth/reapply
 CONF_DIR=/etc/senysisu-plymouth
+SETTINGS_FILE="$HOME/.config/omarchy/plugins/senysisu.plymouth/settings.lua"
+
+# First run: give the user their own copy of the settings to edit, with the
+# command to re-run filled in. Never overwrites an existing one.
+seed_settings() {
+    [[ -f $SETTINGS_FILE ]] && return
+    mkdir -p "$(dirname "$SETTINGS_FILE")"
+    sed "s|@INSTALL@|$SRC_DIR/install.sh|" "$SRC_DIR/settings.lua" >"$SETTINGS_FILE"
+    echo "==> Created $SETTINGS_FILE"
+    echo "    Edit it to change the boot screen, then re-run $0"
+}
 
 rebuild_boot_images() {
     echo "==> Rebuilding the boot images (this takes a little while)"
@@ -41,6 +57,7 @@ rebuild_boot_images() {
 
 case "${1:-}" in
 --preview)
+    seed_settings
     exec "$SRC_DIR/preview.sh"
     ;;
 --uninstall)
@@ -79,7 +96,8 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-echo "==> Rendering the theme from the lock screen's settings"
+seed_settings
+echo "==> Rendering the theme"
 "$SRC_DIR/render.sh" "$work"
 
 echo "==> Installing (sudo)"
@@ -130,4 +148,5 @@ echo ""
 echo "Done. You'll see it at the next boot. If it ever misbehaves at the disk"
 echo "prompt: Esc switches to Plymouth's plain text prompt, and typing the"
 echo "password blind followed by Enter works on any screen."
-echo "Re-run after changing wallpaper/theme/settings.lua. Undo: $0 --uninstall"
+echo "Re-run after changing the wallpaper, theme or $SETTINGS_FILE"
+echo "(saving it alone changes nothing). Undo: $0 --uninstall"

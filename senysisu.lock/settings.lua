@@ -15,7 +15,10 @@ return {
     size = 0.25,            -- digit height
     position = 0.16,        -- how far the clock sits above the screen center
     line_gap = -0.45,       -- gap between hours and minutes (fraction of digit size; negative pulls together)
-    hour_format = "HH",     -- "HH" = 24-hour, "hh" = 12-hour
+    hours = 24,             -- 24 or 12 (no quotes)
+    ampm = true,            -- 12-hour only: AM/PM to the right of the hours
+    ampm_size = 0.2,        -- AM/PM height (fraction of digit size)
+    hour_format = "HH",     -- "HH" = zero-padded (09), "H" = not padded (9)
     minute_format = "mm",
     color = nil,
   },

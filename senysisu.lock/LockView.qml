@@ -39,6 +39,14 @@ Item {
     return (value === undefined || value === null || typeof value !== typeof fallback) ? fallback : value
   }
 
+  // The clock's hour: clock.hours picks 24- or 12-hour time (Qt's "hh" alone
+  // stays 24-hour without an AP marker), hour_format only the zero padding.
+  function clockHour(date) {
+    var hour = date.getHours()
+    if (opt("clock", "hours", 24) === 12) hour = hour % 12 || 12
+    return hour < 10 && opt("clock", "hour_format", "HH").length >= 2 ? "0" + hour : String(hour)
+  }
+
   function optColor(section, key, fallback) {
     var value = opt(section, key, "")
     return value.length > 0 ? value : fallback
@@ -404,11 +412,30 @@ Item {
             id: clockHours
             anchors.horizontalCenter: parent.horizontalCenter
             textFormat: Text.PlainText
-            text: Qt.formatDateTime(root.now, root.opt("clock", "hour_format", "HH"))
+            text: root.clockHour(root.now)
             color: root.optColor("clock", "color", Color.lock.text)
             font.family: root.clockFont
             font.weight: Font.Black
             font.pixelSize: Math.round(overlay.height * root.opt("clock", "size", 0.19))
+
+            // AM/PM to the right of the hours, tops of the letters level with
+            // the tops of the digits. A child, so the clock doesn't move.
+            Text {
+              id: clockAmPm
+              visible: root.opt("clock", "hours", 24) === 12 && root.opt("clock", "ampm", true)
+              textFormat: Text.PlainText
+              text: root.now.getHours() < 12 ? "AM" : "PM"
+              color: parent.color
+              font.family: root.clockFont
+              font.weight: Font.Black
+              font.pixelSize: Math.max(1, Math.round(parent.font.pixelSize * root.opt("clock", "ampm_size", 0.2)))
+              x: parent.width + Math.round(parent.font.pixelSize * 0.04)
+              // Same font, so the letters' cap height is the digits' scaled
+              // (digits are cap height; tight rects round out at small sizes).
+              y: Math.round(parent.baselineOffset + digitsInk.tightBoundingRect.y
+                            - baselineOffset - digitsInk.tightBoundingRect.y * font.pixelSize / parent.font.pixelSize)
+            }
+            TextMetrics { id: digitsInk; font: clockHours.font; text: "7" }  // flat top: no overshoot
           }
 
           Text {

@@ -2,8 +2,8 @@
 
 A Plymouth theme that draws the disk-unlock prompt at boot like the
 `senysisu.lock` lock screen: the blurred wallpaper, the stacked poster clock,
-the date, the password field (pill or `password.rounding` corners) and the battery corner. It reads the same
-`settings.lua` and the current Omarchy theme's colors.
+the date, the password field (pill or `password.rounding` corners) and the battery corner, in the
+current Omarchy theme's colors.
 
 ```bash
 ./install.sh --preview     # look at it in a window first (no root, nothing installed)
@@ -11,8 +11,24 @@ the date, the password field (pill or `password.rounding` corners) and the batte
 ./install.sh --uninstall   # back to Omarchy's boot screen
 ```
 
-The boot screen is a **snapshot**: re-run `./install.sh` after changing the
-wallpaper, the Omarchy theme or `settings.lua`.
+## Settings
+
+The boot screen has its own settings, separate from the lock screen's:
+
+```
+~/.config/omarchy/plugins/senysisu.plymouth/settings.lua
+```
+
+The first `./install.sh` (or `--preview`) creates it from this folder's
+`settings.lua` and never overwrites it afterwards. It holds only what the boot
+screen can show: `clock`, `date`, `battery` (`corner = false` hides it),
+`password` and `background.blur`, with the same meaning and defaults as the
+lock's. There's no `plugins/` manifest in that folder, so the Omarchy shell
+ignores it.
+
+The boot screen is a **snapshot**: saving `settings.lua` changes nothing.
+Re-run `./install.sh` (optionally `--preview` first) after changing it, the
+wallpaper or the Omarchy theme. `--uninstall` keeps the settings file.
 
 ## How it works
 
@@ -20,7 +36,8 @@ Plymouth runs inside the initramfs, before the disk is unlocked. Its script
 engine can draw images but has no clock, no network and no way to pick a
 weight of a variable font. So:
 
-- **`render.sh`** pre-renders everything with ImageMagick + Pango, matching
+- **`render.sh`** reads the settings above (falling back to this folder's
+  `settings.lua`, or `SETTINGS_FILE=…` to try another) and pre-renders everything with ImageMagick + Pango, matching
   how Qt draws the lock: every clock number `0`–`59` / `00`–`59` in
   Adwaita Sans Black (at Qt's default optical size), the date font as one
   image per character, the battery digits and icons, the field, placeholder,
@@ -59,7 +76,7 @@ re-run `./install.sh` to come back.
 - **Wi-Fi indicator** — NetworkManager isn't up; it would always say disconnected.
 - **Show-password eye / Ctrl+R** — Plymouth only tells the theme how many
   characters were typed. Ctrl+R would become part of the passphrase, so the
-  eye is left out rather than shown and broken.
+  eye is left out rather than shown and broken (and no room is kept for it).
 - **Weather color grading** of the wallpaper — no forecast, so it's neutral.
 - **Esc** clears the field on the lock; at boot it toggles Plymouth's text view
   (press it again to come back).
