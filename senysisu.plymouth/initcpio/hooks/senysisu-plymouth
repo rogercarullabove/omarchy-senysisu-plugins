@@ -1,0 +1,47 @@
+#!/usr/bin/ash
+# Feeds the senysisu Plymouth theme its clock: Plymouth's script engine has
+# no time source, so this sends the local time, the date and the battery level
+# through "plymouth display-message" whenever one of them changes. It runs in
+# the background from just after plymouthd starts until switch-root; the
+# theme keeps the clock running by itself after that.
+#
+# Installed by senysisu.plymouth/install.sh into /etc/initcpio/hooks.
+
+senysisu_plymouth_loop() {
+    local last="" now hour minute second battery status supply message
+    while :; do
+        now=$(date +'%H %M %S')
+        hour=${now%% *}; minute=${now#* }; minute=${minute%% *}; second=${now##* }
+
+        battery=""; status=D
+        for supply in /sys/class/power_supply/BAT*; do
+            [ -r "$supply/capacity" ] || continue
+            read -r battery <"$supply/capacity"
+            case "$(cat "$supply/status" 2>/dev/null)" in
+                Charging | Full) status=C ;;
+            esac
+            break
+        done
+
+        # Strip one leading zero: ash reads "08" as an invalid octal number.
+        message="senysisu|$(( ${hour#0} * 3600 + ${minute#0} * 60 + ${second#0} ))|$(date +"$DATE_FORMAT" | tr '|' '/')|$battery|$status"
+        if [ "$hour$minute|$battery|$status" != "$last" ]; then
+            plymouth display-message --text="$message"
+            last="$hour$minute|$battery|$status"
+        fi
+        sleep 1
+    done
+}
+
+run_hook() {
+    command -v plymouth >/dev/null 2>&1 || return 0
+    DATE_FORMAT='%-d %b %A'
+    [ -r /etc/senysisu-plymouth/clock.conf ] && . /etc/senysisu-plymouth/clock.conf
+    senysisu_plymouth_loop >/dev/null 2>&1 &
+    senysisu_plymouth_pid=$!
+}
+
+run_cleanuphook() {
+    [ -n "$senysisu_plymouth_pid" ] && kill "$senysisu_plymouth_pid" 2>/dev/null
+    return 0
+}

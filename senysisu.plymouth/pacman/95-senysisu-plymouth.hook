@@ -1,0 +1,13 @@
+# omarchy-settings resets /etc/plymouth/plymouthd.conf to Theme=omarchy on
+# every install and upgrade. Select the senysisu theme again and rebuild.
+# Installed by senysisu.plymouth/install.sh.
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = omarchy-settings
+
+[Action]
+Description = Re-selecting the senysisu Plymouth theme...
+When = PostTransaction
+Exec = /usr/local/lib/senysisu-plymouth/reapply

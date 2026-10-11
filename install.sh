@@ -22,6 +22,7 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 usage() {
     echo "Usage: $0 <senysisu.airplane-mode|senysisu.lte> [--after <widget-id>]" >&2
     echo "       $0 senysisu.lock [--uninstall]" >&2
+    echo "       $0 senysisu.plymouth [--preview|--uninstall]" >&2
     exit 1
 }
 

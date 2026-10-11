@@ -19,6 +19,7 @@ chmod +x install.sh
 ./install.sh senysisu.airplane-mode --after omarchy.weather
 ./install.sh senysisu.lte
 ./install.sh senysisu.lock
+./install.sh senysisu.plymouth      # boot screen to match; --preview first
 ```
 
 `--after <widget-id>` is optional for any bar widget — omit it to just
@@ -33,6 +34,7 @@ bar widget: `install.sh` hands it off to `senysisu.lock/install.sh` (see below).
 | `senysisu.airplane-mode/` | One-tap toggle for WiFi + Bluetooth + LTE together |
 | `senysisu.lte/` | Signal-bar icon + detail panel for the LTE modem (via `mmcli`), with its own enable/disable toggle |
 | `senysisu.lock/` | Custom lock screen (replaces `omarchy.lock`), configured from a Lua file — see its own README |
+| `senysisu.plymouth/` | Boot/disk-unlock screen drawn like `senysisu.lock` (Plymouth theme + initramfs clock hook) — see its own README |
 
 Each plugin directory is a self-contained, installable unit. The bar
 widgets share this shape:

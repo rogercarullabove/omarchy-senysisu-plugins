@@ -1,0 +1,21 @@
+#!/bin/bash
+# mkinitcpio install hook for senysisu.plymouth (see hooks/senysisu-plymouth).
+
+build() {
+    # Only with the senysisu theme selected: any other theme would print the
+    # clock messages as text.
+    [[ $(plymouth-set-default-theme 2>/dev/null) == senysisu ]] || return 0
+
+    add_binary date
+    add_binary tr
+    add_file "$(readlink -f /etc/localtime)" /etc/localtime
+    add_file /etc/senysisu-plymouth/clock.conf
+    add_runscript
+}
+
+help() {
+    cat <<HELPEOF
+Sends the local time, date and battery level to the senysisu Plymouth theme.
+Place it right after the plymouth hook (busybox-based initramfs only).
+HELPEOF
+}

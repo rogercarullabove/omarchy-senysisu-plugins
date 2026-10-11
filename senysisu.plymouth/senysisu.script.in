@@ -1,0 +1,355 @@
+// senysisu Plymouth theme: the senysisu.lock lock screen at the disk-unlock
+// prompt. render.sh prepends the layout constants and the date glyph table
+// above; everything here is in pixels at BUILD_H and scaled by global.k.
+//
+// Plymouth has no clock, so the initramfs hook sends one through
+// display-message as "senysisu|<seconds since local midnight>|<date>|<battery
+// percent>|<C or D>" once a minute; between messages (and after the hook
+// stops at switch-root) the script keeps time with its 50 Hz refresh.
+
+global.W = Window.GetWidth();
+global.H = Window.GetHeight();
+global.k = H / BUILD_H;
+
+Window.SetBackgroundTopColor(BG_R, BG_G, BG_B);
+Window.SetBackgroundBottomColor(BG_R, BG_G, BG_B);
+
+fun px(value) {
+  return Math.Int(value * global.k + 0.5);
+}
+
+fun min(a, b) { if (a < b) return a; return b; }
+fun max(a, b) { if (a > b) return a; return b; }
+
+// Images scaled to the boot screen, loaded once each.
+global.image_cache = [];
+fun load(name) {
+  if (!global.image_cache[name]) {
+    image = Image(name);
+    if (global.k != 1)
+      image = image.Scale(max(1, px(image.GetWidth())), max(1, px(image.GetHeight())));
+    global.image_cache[name] = image;
+  }
+  return global.image_cache[name];
+}
+
+global.digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+global.digit_value = [];
+for (i = 0; i < 10; i++) global.digit_value[global.digits[i]] = i;
+
+fun two_digits(n, pad) {
+  if (n < 10 && !pad) return global.digits[n];
+  return global.digits[Math.Int(n / 10)] + global.digits[n % 10];
+}
+
+fun string_length(text) {
+  n = 0;
+  while (text.CharAt(n) != "") n++;
+  return n;
+}
+
+// ---------------------------------------------------------------- Background
+
+if (HAS_BACKGROUND) {
+  bg.image = Image("background.png");
+  // Cover the screen, like the lock's PreserveAspectCrop.
+  bg.scale = max(W / bg.image.GetWidth(), H / bg.image.GetHeight());
+  bg.w = Math.Int(bg.image.GetWidth() * bg.scale + 0.5);
+  bg.h = Math.Int(bg.image.GetHeight() * bg.scale + 0.5);
+  if (bg.w != bg.image.GetWidth() || bg.h != bg.image.GetHeight())
+    bg.image = bg.image.Scale(bg.w, bg.h);
+  bg.sprite = Sprite(bg.image);
+  bg.sprite.SetPosition(Math.Int((W - bg.w) / 2), Math.Int((H - bg.h) / 2), -100);
+}
+
+// --------------------------------------------------------------------- Clock
+
+// Hours over minutes, then the date, as one column centered CLOCK_OFFSET
+// above the middle of the screen (LockView.qml's clockBlock).
+block_h = 2 * CLOCK_LINE_H + CLOCK_GAP;
+if (DATE_ENABLED) block_h += DATE_GAP + DATE_LINE_H;
+global.block_y = (BUILD_H - block_h) / 2 - CLOCK_OFFSET;
+global.hours_y = block_y;
+global.minutes_y = block_y + CLOCK_LINE_H + CLOCK_GAP;
+global.date_y = minutes_y + CLOCK_LINE_H + DATE_GAP;
+global.field_y = block_y + block_h + FIELD_GAP;
+
+hours.sprite = Sprite();
+minutes.sprite = Sprite();
+hours.sprite.SetOpacity(0);
+minutes.sprite.SetOpacity(0);
+
+fun place_clock_line(sprite, text, y) {
+  image = load("c" + text + ".png");
+  sprite.SetImage(image);
+  sprite.SetPosition(Math.Int((W - image.GetWidth()) / 2), px(y + CLOCK_Y_ADJ - SHADOW_PAD), 10);
+  sprite.SetOpacity(1);
+}
+
+global.shown_minute = -1;
+fun show_time(seconds) {
+  minute_of_day = Math.Int(seconds / 60) % (24 * 60);
+  if (minute_of_day == global.shown_minute) return;
+  global.shown_minute = minute_of_day;
+  place_clock_line(hours.sprite, two_digits(Math.Int(minute_of_day / 60), HOUR_PAD), hours_y);
+  place_clock_line(minutes.sprite, two_digits(minute_of_day % 60, MINUTE_PAD), minutes_y);
+}
+
+// One sprite per character; the font is monospaced so x is just i * advance.
+global.date_sprites = [];
+global.date_count = 0;
+fun show_date(text) {
+  if (!DATE_ENABLED) return;
+  n = string_length(text);
+  x0 = BUILD_H * W / H / 2 - n * DATE_ADVANCE / 2;
+  for (i = 0; i < n || i < global.date_count; i++) {
+    if (!global.date_sprites[i]) global.date_sprites[i] = Sprite();
+    ch = text.CharAt(i);
+    if (i < n && date_glyph[ch]) {
+      global.date_sprites[i].SetImage(load(date_glyph[ch]));
+      global.date_sprites[i].SetPosition(px(x0 + i * DATE_ADVANCE - SHADOW_PAD), px(date_y + DATE_Y_ADJ - SHADOW_PAD), 10);
+      global.date_sprites[i].SetOpacity(1);
+    } else {
+      global.date_sprites[i].SetOpacity(0);
+    }
+  }
+  global.date_count = n;
+}
+
+// ------------------------------------------------------------------- Battery
+
+global.battery_sprites = [];
+global.battery_count = 0;
+fun show_battery(percent_text, charging) {
+  if (BATTERY_CORNER == "" || percent_text == "") return;
+  percent = 0;
+  n = string_length(percent_text);
+  for (i = 0; i < n; i++) percent = percent * 10 + global.digit_value[percent_text.CharAt(i)];
+
+  tag = "n";
+  if (percent <= BATTERY_LOW && !charging) tag = "e";
+  icon = 11;
+  if (!charging) icon = min(10, Math.Int(percent / 10));
+
+  // "95% 󰁹" in the lock: text glyphs, a space, then the icon.
+  names = [];
+  count = 0;
+  if (BATTERY_PERCENT) {
+    for (i = 0; i < n; i++) { names[count] = "b" + tag + percent_text.CharAt(i) + ".png"; count++; }
+    names[count] = "b" + tag + "pct.png"; count++;
+  }
+  icon_image = load("bi" + tag + two_digits(icon, 0) + ".png");
+  text_w = count * INFO_ADVANCE;
+  if (count > 0) text_w += INFO_ADVANCE;   // the space
+  total_w = text_w + icon_image.GetWidth() / global.k - 2 * SHADOW_PAD;
+
+  build_w = BUILD_H * W / H;
+  x = CORNER_MARGIN;
+  if (BATTERY_CORNER == "top_right" || BATTERY_CORNER == "bottom_right") x = build_w - CORNER_MARGIN - total_w;
+  y = CORNER_MARGIN;
+  if (BATTERY_CORNER == "bottom_left" || BATTERY_CORNER == "bottom_right") y = BUILD_H - CORNER_MARGIN - INFO_LINE_H;
+
+  for (i = 0; i <= count || i < global.battery_count; i++) {
+    if (!global.battery_sprites[i]) global.battery_sprites[i] = Sprite();
+    sprite = global.battery_sprites[i];
+    if (i < count) {
+      sprite.SetImage(load(names[i]));
+      sprite.SetPosition(px(x + i * INFO_ADVANCE - SHADOW_PAD), px(y + INFO_Y_ADJ - SHADOW_PAD), 10);
+      sprite.SetOpacity(1);
+    } else if (i == count) {
+      sprite.SetImage(icon_image);
+      sprite.SetPosition(px(x + text_w - SHADOW_PAD), px(y + INFO_Y_ADJ - SHADOW_PAD), 10);
+      sprite.SetOpacity(1);
+    } else {
+      sprite.SetOpacity(0);
+    }
+  }
+  global.battery_count = count + 1;
+}
+
+// -------------------------------------------------------- Clock hook messages
+
+global.clock_seconds = -1;
+global.clock_frames = 0;
+
+// Split "a|b|c" into an array.
+fun split(text) {
+  parts = [];
+  count = 0;
+  parts[0] = "";
+  n = string_length(text);
+  for (i = 0; i < n; i++) {
+    ch = text.CharAt(i);
+    if (ch == "|") { count++; parts[count] = ""; }
+    else parts[count] += ch;
+  }
+  parts.count = count + 1;
+  return parts;
+}
+
+fun to_number(text) {
+  value = 0;
+  n = string_length(text);
+  for (i = 0; i < n; i++) value = value * 10 + global.digit_value[text.CharAt(i)];
+  return value;
+}
+
+message.sprite = Sprite();
+message.sprite.SetOpacity(0);
+
+fun display_message_callback(text) {
+  parts = split(text);
+  if (parts[0] == "senysisu" && parts.count >= 5) {
+    global.clock_seconds = to_number(parts[1]);
+    global.clock_frames = 0;
+    show_time(global.clock_seconds);
+    show_date(parts[2]);
+    show_battery(parts[3], parts[4] == "C");
+    return;
+  }
+  // Anything else (fsck, systemd) where the lock shows its weather line.
+  message.image = Image.Text(text, TEXT_R, TEXT_G, TEXT_B);
+  message.sprite.SetImage(message.image);
+  message.sprite.SetPosition(Math.Int((W - message.image.GetWidth()) / 2), px(BUILD_H * 0.055), 10);
+  message.sprite.SetOpacity(1);
+}
+
+fun hide_message_callback(text) {
+  message.sprite.SetOpacity(0);
+}
+
+Plymouth.SetDisplayMessageFunction(display_message_callback);
+Plymouth.SetHideMessageFunction(hide_message_callback);
+
+// ------------------------------------------------------------ Password field
+
+field.x = Math.Int((W - px(FIELD_W)) / 2);
+field.y = px(field_y);
+field.sprite = Sprite(load("field.png"));
+field.sprite.SetPosition(field.x, field.y, 20);
+field.sprite.SetOpacity(0);
+
+label.sprite = Sprite();
+label.sprite.SetOpacity(0);
+
+fun show_label(name) {
+  image = load(name);
+  label.sprite.SetImage(image);
+  label.sprite.SetPosition(Math.Int((W - image.GetWidth()) / 2), px(field_y + (FIELD_H - LABEL_LINE_H) / 2 + LABEL_Y_ADJ), 21);
+  label.sprite.SetOpacity(1);
+}
+
+global.dot_sprites = [];
+global.dot_count = 0;
+cursor.sprite = Sprite(load("cursor.png"));
+cursor.sprite.SetOpacity(0);
+global.cursor_on = 0;
+
+// Dots centered in the text area, shrinking once they'd overflow it, like
+// the lock's passwordDotScale.
+fun show_dots(n) {
+  advance = DOT_W + DOT_SPACING;
+  scale = 1;
+  if (n * advance > TEXT_AREA_W - 4) scale = (TEXT_AREA_W - 4) / (n * advance);
+  dot_image = load("dot.png");
+  if (scale < 1)
+    dot_image = dot_image.Scale(max(1, Math.Int(dot_image.GetWidth() * scale)), max(1, Math.Int(dot_image.GetHeight() * scale)));
+  x0 = BUILD_H * W / H / 2 - n * advance * scale / 2;
+  y = field_y + (FIELD_H - DOT_LINE_H * scale) / 2 + DOT_Y_ADJ * scale;
+  for (i = 0; i < n || i < global.dot_count; i++) {
+    if (!global.dot_sprites[i]) global.dot_sprites[i] = Sprite();
+    if (i < n) {
+      global.dot_sprites[i].SetImage(dot_image);
+      global.dot_sprites[i].SetPosition(px(x0 + i * advance * scale), px(y), 22);
+      global.dot_sprites[i].SetOpacity(1);
+    } else {
+      global.dot_sprites[i].SetOpacity(0);
+    }
+  }
+  global.dot_count = n;
+  // Qt's cursor is one line of the (shrunken) dot font tall.
+  cursor_image = load("cursor.png");
+  if (scale < 1) cursor_image = cursor_image.Scale(cursor_image.GetWidth(), max(1, Math.Int(cursor_image.GetHeight() * scale)));
+  cursor.sprite.SetImage(cursor_image);
+  cursor.sprite.SetPosition(px(x0 + n * advance * scale), px(field_y + (FIELD_H - DOT_LINE_H * scale) / 2), 23);
+}
+
+fun hide_password_field() {
+  field.sprite.SetOpacity(0);
+  label.sprite.SetOpacity(0);
+  cursor.sprite.SetOpacity(0);
+  show_dots(0);
+}
+
+// States: "hidden", "typing", "checking" (after Enter), "unlocked".
+global.state = "hidden";
+global.failures = 0;
+global.failed = 0;
+
+fun display_password_callback(prompt, bullets) {
+  if (global.state == "checking") {
+    // Asked again after an attempt: the passphrase was wrong.
+    global.failures++;
+    global.failed = 1;
+  }
+  global.state = "typing";
+  if (bullets > 0) global.failed = 0;   // typing clears the failure, as in the lock
+
+  if (global.failed) field.sprite.SetImage(load("field-error.png"));
+  else field.sprite.SetImage(load("field.png"));
+  field.sprite.SetOpacity(1);
+
+  show_dots(bullets);
+  if (bullets > 0) {
+    label.sprite.SetOpacity(0);
+  } else if (global.failed) {
+    show_label("failed" + global.digits[min(global.failures, 9)] + ".png");
+  } else {
+    show_label("placeholder.png");
+  }
+  global.cursor_on = 1;
+  global.cursor_frames = 0;
+  cursor.sprite.SetOpacity(bullets > 0);
+}
+
+fun display_normal_callback() {
+  if (global.state == "typing") {
+    global.state = "checking";
+    show_dots(0);
+    cursor.sprite.SetOpacity(0);
+    field.sprite.SetImage(load("field.png"));
+    show_label("checking.png");
+  }
+}
+
+fun root_mounted_callback() {
+  // The disk is open: the lock would vanish here.
+  global.state = "unlocked";
+  hide_password_field();
+}
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetRootMountedFunction(root_mounted_callback);
+
+// ------------------------------------------------------------------- Refresh
+
+global.cursor_frames = 0;
+fun refresh_callback() {
+  // Keep the clock running between messages (50 frames per second).
+  if (global.clock_seconds >= 0) {
+    global.clock_frames++;
+    if (global.clock_frames % 50 == 0)
+      show_time(global.clock_seconds + global.clock_frames / 50);
+  }
+  // Qt's cursor: 500 ms on, 500 ms off, only while there are dots.
+  if (global.state == "typing" && global.dot_count > 0) {
+    global.cursor_frames++;
+    if (global.cursor_frames % 25 == 0) {
+      global.cursor_on = !global.cursor_on;
+      cursor.sprite.SetOpacity(global.cursor_on);
+    }
+  }
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);

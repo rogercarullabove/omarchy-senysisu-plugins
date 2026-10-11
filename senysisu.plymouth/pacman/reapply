@@ -1,0 +1,16 @@
+#!/bin/bash
+# Run by 95-senysisu-plymouth.hook after omarchy-settings is installed or
+# upgraded: if that reset the Plymouth theme, select senysisu again and
+# rebuild the boot images. Installed by senysisu.plymouth/install.sh.
+set -euo pipefail
+
+[[ -f /usr/share/plymouth/themes/senysisu/senysisu.plymouth ]] || exit 0
+[[ $(plymouth-set-default-theme) == senysisu ]] && exit 0
+
+echo "omarchy-settings reset the boot screen; selecting senysisu again"
+plymouth-set-default-theme senysisu
+if command -v limine-mkinitcpio >/dev/null; then
+    limine-mkinitcpio
+else
+    mkinitcpio -P
+fi
