@@ -95,9 +95,12 @@ generate its `shell.toml`, and picks its first wallpaper (the current theme
 keeps the wallpaper picked now). The lock restages it each time it shows. An
 unknown name follows the current theme and logs a warning with the list.
 
-How it works: `LockView.qml` watches `settings.lua`, runs it through
+How it works: `Service.qml` watches `settings.lua`, runs it through
 `settings-loader.lua` (converts the returned table to JSON with the system
-`lua`), and reads each option with a built-in default as fallback.
+`lua`) and stages the pinned theme, and `LockView.qml` reads each option with
+a built-in default as fallback. Both live in `Service.qml` because the lock
+view is created anew for every lock: loading there would show the defaults
+and the current theme for a moment before the settings arrive.
 
 ## Weather effects
 

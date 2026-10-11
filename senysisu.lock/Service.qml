@@ -29,6 +29,34 @@ Item {
   property int failedAttempts: 0
   property string backgroundPath: ""
   property int backgroundVersion: 0
+
+  // The wallpaper the lock shows, kept decoded by wallpaperCache below so a
+  // new lock view (one is made for every lock) gets it from Qt's image cache
+  // in its first frame, instead of decoding it from disk a few frames after
+  // everything else. `?v=` forces a reload when the background changes.
+  readonly property string wallpaperPath: pinned ? pinned.wallpaper : backgroundPath
+  readonly property string wallpaperUrl: wallpaperPath.length > 0
+    ? "file://" + wallpaperPath.split("/").map(encodeURIComponent).join("/") + "?v=" + backgroundVersion
+    : ""
+  // One size for every screen (the largest), so they all share one cached copy.
+  readonly property size wallpaperSize: {
+    var screens = Quickshell.screens || [], w = 0, h = 0
+    for (var i = 0; i < screens.length; i++) {
+      w = Math.max(w, screens[i].width || 0)
+      h = Math.max(h, screens[i].height || 0)
+    }
+    return Qt.size(w, h)
+  }
+
+  Image {
+    id: wallpaperCache
+    visible: false
+    source: root.wallpaperUrl
+    fillMode: Image.PreserveAspectCrop
+    asynchronous: true
+    cache: true
+    sourceSize: root.wallpaperSize
+  }
   property string lastEvent: "init"
   property string lastEventAt: ""
   property bool strandedLock: false
@@ -99,8 +127,122 @@ Item {
     beginLock()
   }
 
+  // Settings from settings.lua next to this file, converted to JSON by
+  // settings-loader.lua. Watched, so saved edits apply live. Loaded here, not
+  // in LockView (made anew for every lock), so a lock opens with them, and
+  // with the pinned theme, already in place.
+  readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, ""))
+  property var settings: ({})
+
+  // settings.theme pins a theme: theme-stage.sh stages it (as `omarchy theme
+  // set` would, without switching to it) and its palette and wallpaper are
+  // read back from there. Restaged whenever the lock shows, so a pinned
+  // current theme keeps up with wallpaper changes; until then the lock keeps
+  // the last staging rather than flashing the current theme.
+  readonly property string pinnedTheme: settings && typeof settings.theme === "string" ? settings.theme.trim() : ""
+  property var pinned: null   // { colors, shell, wallpaper } of pinnedTheme, once staged
+
+  // Color.loadColors' palette rules, for a colors.toml that isn't current.
+  function parseThemeColors(raw) {
+    var c = {}
+    String(raw || "").split("\n").forEach(function(line) {
+      var m = line.match(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+      if (m) c[m[1]] = m[2]
+    })
+    return {
+      foreground: c.foreground || c.color7 || "#cacccc",
+      background: c.background || c.color0 || "#101315",
+      accent: c.accent || c.color4 || "#cacccc",
+      urgent: c.red || c.color1 || "#a55555"
+    }
+  }
+
+  function stageTheme() {
+    if (pinnedTheme.length === 0) {
+      pinned = null
+      return
+    }
+    if (themeProc.running) {
+      themeProc.again = true
+      return
+    }
+    themeProc.requested = pinnedTheme
+    themeProc.running = true
+  }
+
+  onPinnedThemeChanged: stageTheme()
+
+  Process {
+    id: themeProc
+    property string requested: ""
+    property bool again: false
+    command: ["bash", "-c",
+      "d=$(mktemp -d) || exit 1; trap 'rm -rf \"$d\"' EXIT; "
+      + "bash \"$1\" \"$2\" \"$d\" >/dev/null || exit 1; "
+      + "cat \"$d/theme/colors.toml\"; printf '\\n@@\\n'; cat \"$d/theme/shell.toml\" 2>/dev/null; printf '\\n@@\\n'; "
+      + "if [[ -L $d/background ]]; then readlink -f \"$d/background\"; fi",
+      "theme-stage", root.pluginDir + "theme-stage.sh", requested]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var parts = String(text || "").split("\n@@\n")
+        if (parts.length !== 3 || themeProc.requested !== root.pinnedTheme) return
+        root.pinned = {
+          colors: root.parseThemeColors(parts[0]),
+          shell: Color.parseShell(parts[1]),
+          wallpaper: parts[2].trim()
+        }
+      }
+    }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var message = String(text || "").trim().replace(/\s*\n\s*/g, " ")
+        if (message.length > 0) console.warn("senysisu.lock: " + message + " — following the current theme")
+      }
+    }
+    onExited: function(exitCode) {
+      if (exitCode !== 0 && requested === root.pinnedTheme) root.pinned = null
+      if (again) {
+        again = false
+        root.stageTheme()
+      }
+    }
+  }
+
+  FileView {
+    path: root.pluginDir + "settings.lua"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: settingsProc.running = true
+    onLoadFailed: root.settings = ({})
+  }
+
+  Process {
+    id: settingsProc
+    command: ["lua", root.pluginDir + "settings-loader.lua", root.pluginDir + "settings.lua"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (String(text || "").trim().length === 0) return
+        try {
+          root.settings = JSON.parse(text)
+        } catch (e) {
+          console.warn("senysisu.lock: could not parse settings: " + e)
+        }
+      }
+    }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (String(text || "").trim().length > 0) console.warn("senysisu.lock: settings.lua error, using defaults: " + text.trim())
+    }
+    onExited: function(exitCode) { if (exitCode !== 0) root.settings = ({}) }
+  }
+
   function refreshBackground() {
     if (!readlinkProc.running) readlinkProc.running = true
+    stageTheme()
   }
 
   function refreshFingerprintStatus() {
@@ -263,13 +405,15 @@ Item {
 
     WlSessionLockSurface {
       id: lockSurface
-      color: Color.background
+      color: root.pinned ? root.pinned.colors.background : Color.background
 
       LockView {
         id: lockView
         anchors.fill: parent
-        backgroundPath: root.backgroundPath
-        backgroundVersion: root.backgroundVersion
+        wallpaperUrl: root.wallpaperUrl
+        settings: root.settings
+        pinned: root.pinned
+        wallpaperSize: root.wallpaperSize
         fingerprintConfigured: root.fingerprintConfigured
         authenticatingPassword: root.authenticatingPassword
         failureMessage: root.failureMessage
@@ -298,8 +442,10 @@ Item {
 
     LockView {
       anchors.fill: parent
-      backgroundPath: root.backgroundPath
-      backgroundVersion: root.backgroundVersion
+      wallpaperUrl: root.wallpaperUrl
+      settings: root.settings
+      pinned: root.pinned
+      wallpaperSize: root.wallpaperSize
       fingerprintConfigured: root.fingerprintConfigured
       authenticatingPassword: false
       failureMessage: ""

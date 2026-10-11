@@ -10,8 +10,10 @@ import qs.Ui
 Item {
   id: root
 
-  property string backgroundPath: ""
-  property int backgroundVersion: 0
+  // The wallpaper as Service.qml keeps it decoded (see wallpaperCache there):
+  // the same url and size, so this view gets it from the cache at once.
+  property string wallpaperUrl: ""
+  property size wallpaperSize: Qt.size(0, 0)
   property bool fingerprintConfigured: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
@@ -27,11 +29,11 @@ Item {
   property string sunrise: ""            // "HH:mm:ss", location local time
   property string sunset: ""
 
-  // Settings from settings.lua next to this file, converted to JSON by
-  // settings-loader.lua. Watched, so saved edits apply live. Any missing,
-  // nil or wrongly typed value falls back to the default passed to opt().
+  // Settings from settings.lua, loaded and kept by Service.qml (which outlives
+  // this view: a new one is made for every lock) so a lock opens with them
+  // already in place. Any missing, nil or wrongly typed value falls back to
+  // the default passed to opt().
   property var settings: ({})
-  readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, ""))
 
   function opt(section, key, fallback) {
     var group = settings ? settings[section] : null
@@ -53,31 +55,12 @@ Item {
   }
 
   // ---- Theme. nil follows the current Omarchy theme live, through the shell's
-  // Color singleton. A theme name pins that theme: theme-stage.sh stages it
-  // (as `omarchy theme set` would, without switching to it) and its palette
-  // and wallpaper are read back from there. Restaged whenever the lock shows,
-  // so a pinned current theme keeps up with wallpaper changes.
-  readonly property string pinnedTheme: settings && typeof settings.theme === "string" ? settings.theme.trim() : ""
-  property var pinned: null   // { colors, shell, wallpaper } of pinnedTheme, once staged
+  // Color singleton. A pinned theme (settings.theme) is staged by Service.qml
+  // and passed in as `pinned`: { colors, shell, wallpaper }.
+  property var pinned: null
 
   // What the view draws with: { background, lock: { … as Color.lock … } }.
   readonly property var pal: pinned ? pinnedPalette(pinned) : ({ background: Color.background, lock: Color.lock })
-  readonly property string wallpaperPath: pinned ? pinned.wallpaper : backgroundPath
-
-  // Color.loadColors' palette rules, for a colors.toml that isn't current.
-  function parseThemeColors(raw) {
-    var c = {}
-    String(raw || "").split("\n").forEach(function(line) {
-      var m = line.match(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
-      if (m) c[m[1]] = m[2]
-    })
-    return {
-      foreground: c.foreground || c.color7 || "#cacccc",
-      background: c.background || c.color0 || "#101315",
-      accent: c.accent || c.color4 || "#cacccc",
-      urgent: c.red || c.color1 || "#a55555"
-    }
-  }
 
   // Color.lock's fallbacks over a pinned theme's shell.toml values.
   function pinnedPalette(p) {
@@ -116,90 +99,6 @@ Item {
         borderErrorSpec: border("lock.border-error", c.urgent)
       }
     }
-  }
-
-  function stageTheme() {
-    if (pinnedTheme.length === 0) {
-      pinned = null
-      return
-    }
-    if (themeProc.running) {
-      themeProc.again = true
-      return
-    }
-    themeProc.requested = pinnedTheme
-    themeProc.running = true
-  }
-
-  onPinnedThemeChanged: stageTheme()
-  onLoadBackgroundChanged: if (loadBackground) stageTheme()
-
-  Process {
-    id: themeProc
-    property string requested: ""
-    property bool again: false
-    command: ["bash", "-c",
-      "d=$(mktemp -d) || exit 1; trap 'rm -rf \"$d\"' EXIT; "
-      + "bash \"$1\" \"$2\" \"$d\" >/dev/null || exit 1; "
-      + "cat \"$d/theme/colors.toml\"; printf '\\n@@\\n'; cat \"$d/theme/shell.toml\" 2>/dev/null; printf '\\n@@\\n'; "
-      + "if [[ -L $d/background ]]; then readlink -f \"$d/background\"; fi",
-      "theme-stage", root.pluginDir + "theme-stage.sh", requested]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var parts = String(text || "").split("\n@@\n")
-        if (parts.length !== 3 || themeProc.requested !== root.pinnedTheme) return
-        root.pinned = {
-          colors: root.parseThemeColors(parts[0]),
-          shell: Color.parseShell(parts[1]),
-          wallpaper: parts[2].trim()
-        }
-      }
-    }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var message = String(text || "").trim().replace(/\s*\n\s*/g, " ")
-        if (message.length > 0) console.warn("senysisu.lock: " + message + " — following the current theme")
-      }
-    }
-    onExited: function(exitCode) {
-      if (exitCode !== 0 && requested === root.pinnedTheme) root.pinned = null
-      if (again) {
-        again = false
-        root.stageTheme()
-      }
-    }
-  }
-
-  FileView {
-    path: root.pluginDir + "settings.lua"
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: settingsProc.running = true
-    onLoadFailed: root.settings = ({})
-  }
-
-  Process {
-    id: settingsProc
-    command: ["lua", root.pluginDir + "settings-loader.lua", root.pluginDir + "settings.lua"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        if (String(text || "").trim().length === 0) return
-        try {
-          root.settings = JSON.parse(text)
-        } catch (e) {
-          console.warn("senysisu.lock: could not parse settings: " + e)
-        }
-      }
-    }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (String(text || "").trim().length > 0) console.warn("senysisu.lock: settings.lua error, using defaults: " + text.trim())
-    }
-    onExited: function(exitCode) { if (exitCode !== 0) root.settings = ({}) }
   }
 
   readonly property string clockFont: opt("clock", "font", "Adwaita Sans")
@@ -400,15 +299,6 @@ Item {
   signal clearFailureRequested()
   signal wakeRequested()
 
-  // Cache-busts the lock background by appending `?v=`. Adding a query
-  // string keeps Image's loader happy while forcing it to reload when the
-  // user picks a new background mid-session.
-  function fileUrl(path) {
-    if (!path) return ""
-    var encoded = String(path).split("/").map(encodeURIComponent).join("/")
-    return "file://" + encoded + "?v=" + backgroundVersion
-  }
-
   function forcePasswordFocus() {
     passwordInput.forceActiveFocus()
   }
@@ -443,19 +333,33 @@ Item {
     text: "●".repeat(passwordInput.text.length)
   }
 
+  // Everything appears at once, wallpaper included: hidden (showing the lock
+  // surface's plain theme background) while a wallpaper that missed the cache
+  // still decodes, for at most revealTimer's interval.
+  readonly property bool wallpaperSettled: !loadBackground || wallpaper.status !== Image.Loading || revealTimer.expired
+
+  Timer {
+    id: revealTimer
+    property bool expired: false
+    interval: 400
+    running: root.loadBackground && !expired
+    onTriggered: expired = true
+  }
+  onLoadBackgroundChanged: revealTimer.expired = false
+
   Rectangle {
     anchors.fill: parent
     color: root.pal.background
+    opacity: root.wallpaperSettled ? 1 : 0
 
     Image {
       id: wallpaper
       anchors.fill: parent
-      source: root.loadBackground ? root.fileUrl(root.wallpaperPath) : ""
+      source: root.loadBackground ? root.wallpaperUrl : ""
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
-      cache: false
-      sourceSize.width: width
-      sourceSize.height: height
+      cache: true
+      sourceSize: root.wallpaperSize.width > 0 ? root.wallpaperSize : Qt.size(width, height)
     }
 
     MultiEffect {
