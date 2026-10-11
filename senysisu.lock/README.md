@@ -44,8 +44,9 @@ authentication) is untouched from the original.
   the weather, either automatically (from the same wttr.in fetch) or set by
   hand. See [Weather effects](#weather-effects).
 
-Colors still follow the current theme (`[lock]` section of the theme's
-`shell.toml`, overridable in `~/.config/omarchy/shell.toml`).
+Colors follow the current theme (`[lock]` section of the theme's
+`shell.toml`, overridable in `~/.config/omarchy/shell.toml`), or another
+installed theme pinned with the `theme` setting — see below.
 
 ## Settings (`settings.lua`)
 
@@ -55,6 +56,7 @@ these sections:
 
 | Section | Options |
 |---|---|
+| (top level) | `theme`: `nil` follows the current theme, or a theme name (`"nord"`, `"Tokyo Night"`) pins it |
 | `clock` | `font`, `size`, `position`, `line_gap`, `hours` (`24`/`12`), `ampm`, `ampm_size`, `hour_format` (`"HH"` padded / `"H"`), `minute_format`, `color` |
 | `date` | `enabled`, `format`, `gap`, `color` |
 | `weather` | `enabled`, `location`, `refresh_minutes` |
@@ -83,6 +85,15 @@ the theme.
   all defaults; it keeps working. See the error with
   `journalctl --user -g senysisu.lock`.
 - Being Lua, the file can compute values (e.g. `size = 0.19 * 1.1`).
+
+`theme` pins the lock's colors and wallpaper to any installed theme (list them
+with `omarchy theme list` or `./theme-stage.sh --list`; the built-in ones are
+listed in the file). `theme-stage.sh` stages it the way `omarchy theme set`
+would, without switching to it: copies its `colors.toml`/`shell*.toml` into a
+scratch home, runs Omarchy's own `omarchy-theme-set-templates` there to
+generate its `shell.toml`, and picks its first wallpaper (the current theme
+keeps the wallpaper picked now). The lock restages it each time it shows. An
+unknown name follows the current theme and logs a warning with the list.
 
 How it works: `LockView.qml` watches `settings.lua`, runs it through
 `settings-loader.lua` (converts the returned table to JSON with the system

@@ -18,7 +18,7 @@ set -euo pipefail
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ID="senysisu.lock"
 PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
-PLUGIN_FILES=(manifest.json Service.qml LockView.qml WeatherBackdrop.qml settings-loader.lua README.md)
+PLUGIN_FILES=(manifest.json Service.qml LockView.qml WeatherBackdrop.qml settings-loader.lua theme-stage.sh README.md)
 
 command -v omarchy >/dev/null 2>&1 || { echo "omarchy not found — this only installs on Omarchy." >&2; exit 1; }
 

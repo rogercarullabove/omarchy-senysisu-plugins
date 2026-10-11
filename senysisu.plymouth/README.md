@@ -3,7 +3,8 @@
 A Plymouth theme that draws the disk-unlock prompt at boot like the
 `senysisu.lock` lock screen: the blurred wallpaper, the stacked poster clock,
 the date, the password field (pill or `password.rounding` corners) and the battery corner, in the
-current Omarchy theme's colors.
+current Omarchy theme's colors and wallpaper (or another installed theme's,
+with the `theme` setting).
 
 ```bash
 ./install.sh --preview     # look at it in a window first (no root, nothing installed)
@@ -22,7 +23,8 @@ The boot screen has its own settings, separate from the lock screen's:
 The first `./install.sh` (or `--preview`) creates it from this folder's
 `settings.lua` and never overwrites it afterwards. It holds only what the boot
 screen can show: `clock`, `date`, `battery` (`corner = false` hides it),
-`password` and `background.blur`, with the same meaning and defaults as the
+`password`, `background.blur` and `theme` (`nil` = the current theme, or an
+installed theme's name to pin it), with the same meaning and defaults as the
 lock's. There's no `plugins/` manifest in that folder, so the Omarchy shell
 ignores it.
 

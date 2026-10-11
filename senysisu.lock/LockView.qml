@@ -52,6 +52,126 @@ Item {
     return value.length > 0 ? value : fallback
   }
 
+  // ---- Theme. nil follows the current Omarchy theme live, through the shell's
+  // Color singleton. A theme name pins that theme: theme-stage.sh stages it
+  // (as `omarchy theme set` would, without switching to it) and its palette
+  // and wallpaper are read back from there. Restaged whenever the lock shows,
+  // so a pinned current theme keeps up with wallpaper changes.
+  readonly property string pinnedTheme: settings && typeof settings.theme === "string" ? settings.theme.trim() : ""
+  property var pinned: null   // { colors, shell, wallpaper } of pinnedTheme, once staged
+
+  // What the view draws with: { background, lock: { … as Color.lock … } }.
+  readonly property var pal: pinned ? pinnedPalette(pinned) : ({ background: Color.background, lock: Color.lock })
+  readonly property string wallpaperPath: pinned ? pinned.wallpaper : backgroundPath
+
+  // Color.loadColors' palette rules, for a colors.toml that isn't current.
+  function parseThemeColors(raw) {
+    var c = {}
+    String(raw || "").split("\n").forEach(function(line) {
+      var m = line.match(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+      if (m) c[m[1]] = m[2]
+    })
+    return {
+      foreground: c.foreground || c.color7 || "#cacccc",
+      background: c.background || c.color0 || "#101315",
+      accent: c.accent || c.color4 || "#cacccc",
+      urgent: c.red || c.color1 || "#a55555"
+    }
+  }
+
+  // Color.lock's fallbacks over a pinned theme's shell.toml values.
+  function pinnedPalette(p) {
+    var c = p.colors, s = p.shell
+    function value(key) {
+      var v = String(s[key] || "").trim(), seen = {}
+      while (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(v) && !seen[v] && s[v]) {   // "hyprland.active-border"
+        seen[v] = true
+        v = String(s[v]).trim()
+      }
+      return v
+    }
+    function alpha(key, fallback) {
+      var n = Number(s[key])
+      return s[key] !== undefined && isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
+    }
+    function flat(key, fallback) {   // first stop of a gradient
+      var token = value(key).split(/\s+/).filter(function(t) { return !/deg$/.test(t) })[0] || ""
+      return /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(token) ? token : fallback
+    }
+    function border(key, fallback) {
+      var resolved = Border.borderValue(value(key), fallback, alpha("lock.border-alpha", 1.0), "")
+      var spec = Border.flat(resolved.color, s["lock.border-width"] || root.outlineThickness)
+      spec.gradient = resolved.gradient
+      return spec
+    }
+    return {
+      background: c.background,
+      lock: {
+        background: Util.alpha(flat("lock.background", c.background), alpha("lock.background-alpha", 0.8)),
+        text: flat("lock.text", c.foreground),
+        placeholder: flat("lock.placeholder", Util.alpha(c.foreground, 0.66)),
+        textError: flat("lock.text-error", c.urgent),
+        selection: Util.alpha(flat("lock.selection", c.accent), alpha("lock.selection-alpha", 0.45)),
+        borderActiveSpec: border("lock.border-active", c.accent),
+        borderErrorSpec: border("lock.border-error", c.urgent)
+      }
+    }
+  }
+
+  function stageTheme() {
+    if (pinnedTheme.length === 0) {
+      pinned = null
+      return
+    }
+    if (themeProc.running) {
+      themeProc.again = true
+      return
+    }
+    themeProc.requested = pinnedTheme
+    themeProc.running = true
+  }
+
+  onPinnedThemeChanged: stageTheme()
+  onLoadBackgroundChanged: if (loadBackground) stageTheme()
+
+  Process {
+    id: themeProc
+    property string requested: ""
+    property bool again: false
+    command: ["bash", "-c",
+      "d=$(mktemp -d) || exit 1; trap 'rm -rf \"$d\"' EXIT; "
+      + "bash \"$1\" \"$2\" \"$d\" >/dev/null || exit 1; "
+      + "cat \"$d/theme/colors.toml\"; printf '\\n@@\\n'; cat \"$d/theme/shell.toml\" 2>/dev/null; printf '\\n@@\\n'; "
+      + "if [[ -L $d/background ]]; then readlink -f \"$d/background\"; fi",
+      "theme-stage", root.pluginDir + "theme-stage.sh", requested]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var parts = String(text || "").split("\n@@\n")
+        if (parts.length !== 3 || themeProc.requested !== root.pinnedTheme) return
+        root.pinned = {
+          colors: root.parseThemeColors(parts[0]),
+          shell: Color.parseShell(parts[1]),
+          wallpaper: parts[2].trim()
+        }
+      }
+    }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var message = String(text || "").trim().replace(/\s*\n\s*/g, " ")
+        if (message.length > 0) console.warn("senysisu.lock: " + message + " — following the current theme")
+      }
+    }
+    onExited: function(exitCode) {
+      if (exitCode !== 0 && requested === root.pinnedTheme) root.pinned = null
+      if (again) {
+        again = false
+        root.stageTheme()
+      }
+    }
+  }
+
   FileView {
     path: root.pluginDir + "settings.lua"
     watchChanges: true
@@ -269,9 +389,11 @@ Item {
     : 1
   readonly property bool showPasswordCursor: inputEnabled && !authenticatingPassword && failureMessage.length === 0
   readonly property bool errorState: failureMessage.length > 0
-  readonly property var inputBorderSpec: errorState
-    ? Border.surfaceSpec("lock", "border-error", Color.lock.borderError, root.outlineThickness, "border-alpha")
-    : Border.surfaceSpec("lock", "border-active", Color.lock.borderActive, root.outlineThickness, "border-alpha")
+  readonly property var inputBorderSpec: pinned
+    ? (errorState ? pal.lock.borderErrorSpec : pal.lock.borderActiveSpec)
+    : errorState
+      ? Border.surfaceSpec("lock", "border-error", Color.lock.borderError, root.outlineThickness, "border-alpha")
+      : Border.surfaceSpec("lock", "border-active", Color.lock.borderActive, root.outlineThickness, "border-alpha")
 
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
@@ -323,12 +445,12 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    color: Color.background
+    color: root.pal.background
 
     Image {
       id: wallpaper
       anchors.fill: parent
-      source: root.loadBackground ? root.fileUrl(root.backgroundPath) : ""
+      source: root.loadBackground ? root.fileUrl(root.wallpaperPath) : ""
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       cache: false
@@ -377,7 +499,7 @@ Item {
       layer.enabled: true
       layer.effect: MultiEffect {
         shadowEnabled: true
-        shadowColor: Color.background
+        shadowColor: root.pal.background
         shadowBlur: 0.8
         shadowOpacity: 0.6
       }
@@ -389,7 +511,7 @@ Item {
         visible: root.weatherEnabled && root.weatherText.length > 0
         textFormat: Text.PlainText
         text: root.weatherText
-        color: Color.lock.text
+        color: root.pal.lock.text
         font.family: Style.font.family
         font.pixelSize: root.infoFontSize
         font.bold: true
@@ -413,7 +535,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             textFormat: Text.PlainText
             text: root.clockHour(root.now)
-            color: root.optColor("clock", "color", Color.lock.text)
+            color: root.optColor("clock", "color", root.pal.lock.text)
             font.family: root.clockFont
             font.weight: Font.Black
             font.pixelSize: Math.round(overlay.height * root.opt("clock", "size", 0.19))
@@ -442,7 +564,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             textFormat: Text.PlainText
             text: Qt.formatDateTime(root.now, root.opt("clock", "minute_format", "mm"))
-            color: root.optColor("clock", "color", Color.lock.text)
+            color: root.optColor("clock", "color", root.pal.lock.text)
             font.family: root.clockFont
             font.weight: Font.Black
             font.pixelSize: clockHours.font.pixelSize
@@ -454,7 +576,7 @@ Item {
           textFormat: Text.PlainText
           visible: root.opt("date", "enabled", true)
           text: Qt.formatDateTime(root.now, root.opt("date", "format", "d MMM dddd"))
-          color: root.optColor("date", "color", Color.lock.text)
+          color: root.optColor("date", "color", root.pal.lock.text)
           font.family: Style.font.family
           font.pixelSize: root.fieldFontSize
           font.bold: true
@@ -466,7 +588,7 @@ Item {
         Text {
           textFormat: Text.PlainText
           text: (root.opt("battery", "show_percent", true) ? root.batteryPercent + "% " : "") + root.batteryIcon
-          color: root.batteryPercent <= root.opt("battery", "low", 15) && !root.batteryCharging ? Color.lock.textError : Color.lock.text
+          color: root.batteryPercent <= root.opt("battery", "low", 15) && !root.batteryCharging ? root.pal.lock.textError : root.pal.lock.text
           font.family: Style.font.family
           font.pixelSize: root.infoFontSize
           font.bold: true
@@ -478,7 +600,7 @@ Item {
         Text {
           textFormat: Text.PlainText
           text: (root.opt("wifi", "show_name", false) && root.wifiLabel.length > 0 ? root.wifiLabel + " " : "") + root.wifiIcon
-          color: Color.lock.text
+          color: root.pal.lock.text
           font.family: Style.font.family
           font.pixelSize: root.infoFontSize
           font.bold: true
@@ -516,7 +638,7 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       // overlay fills the screen at (0,0), so clockBlock's y is in our coordinates.
       y: clockBlock.y + clockBlock.height + Math.round(parent.height * root.opt("password", "gap", 0.13))
-      color: Color.lock.background
+      color: root.pal.lock.background
       borderSpec: root.inputBorderSpec
       radius: root.fieldRadius
       clip: true
@@ -539,16 +661,16 @@ Item {
         echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
         passwordCharacter: "\u25CF"
         passwordMaskDelay: 0
-        color: Color.lock.text
-        selectionColor: Color.lock.selection
-        selectedTextColor: Color.lock.text
+        color: root.pal.lock.text
+        selectionColor: root.pal.lock.selection
+        selectedTextColor: root.pal.lock.text
         font.family: Style.font.family
         font.pixelSize: text.length > 0 && !root.showPassword ? Math.max(1, Math.floor(root.passwordDotFontSize * root.passwordDotScale)) : root.fieldFontSize
         font.letterSpacing: text.length > 0 && !root.showPassword ? root.passwordDotLetterSpacing * root.passwordDotScale : 0
         cursorVisible: activeFocus && root.showPasswordCursor && text.length > 0
         cursorDelegate: Rectangle {
           width: 2
-          color: Color.lock.text
+          color: root.pal.lock.text
           visible: passwordInput.cursorVisible
         }
 
@@ -584,7 +706,7 @@ Item {
         anchors.fill: passwordInput
         text: root.authenticatingPassword ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : root.placeholderText)
         visible: passwordInput.text.length === 0
-        color: root.authenticatingPassword ? Color.lock.text : (root.failureMessage.length > 0 ? Color.lock.textError : Color.lock.placeholder)
+        color: root.authenticatingPassword ? root.pal.lock.text : (root.failureMessage.length > 0 ? root.pal.lock.textError : root.pal.lock.placeholder)
         font.family: Style.font.family
         font.pixelSize: root.fieldFontSize
         font.italic: !root.authenticatingPassword && root.failureMessage.length > 0
@@ -602,7 +724,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         visible: root.revealEnabled
         text: root.showPassword ? "󰈉" : "󰈈"
-        color: revealMouse.containsMouse ? Color.lock.text : Color.lock.placeholder
+        color: revealMouse.containsMouse ? root.pal.lock.text : root.pal.lock.placeholder
         font.family: Style.font.family
         font.pixelSize: Math.round(root.fieldFontSize * 1.1)
         horizontalAlignment: Text.AlignHCenter
@@ -633,7 +755,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         visible: root.fingerprintConfigured
         text: "󰈷"
-        color: Color.lock.placeholder
+        color: root.pal.lock.placeholder
         font.family: Style.font.family
         font.pixelSize: Math.round(root.fieldFontSize * 1.1)
         horizontalAlignment: Text.AlignHCenter

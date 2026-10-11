@@ -11,7 +11,7 @@
 # every piece of text is pre-rendered here with ImageMagick + Pango, matching
 # how senysisu.lock draws it in Qt: the same fonts, sizes and soft shadow,
 # laid out from the boot screen's own settings.lua (see SETTINGS_FILE) and
-# the current theme's colors.
+# the colors and wallpaper of the current theme (or of the theme setting).
 # The wallpaper is blurred to match the lock's background.blur.
 #
 # Sizes are computed for one screen size (default: the focused monitor); the
@@ -53,6 +53,18 @@ opt() {
     jq -r --arg s "$1" --arg k "$2" --argjson d "$3" \
         '(.[$s] // {})[$k] as $v | if ($v | type) == ($d | type) then $v else $d end' <<<"$SETTINGS"
 }
+
+# ---- Theme: the current one, or the one the theme setting names --------------
+
+THEME_NAME=$(jq -r '.theme | if type == "string" then . else "" end' <<<"$SETTINGS")
+if [[ -n $THEME_NAME ]]; then
+    if "$SRC_DIR/../senysisu.lock/theme-stage.sh" "$THEME_NAME" "$OUT/theme-state"; then
+        THEME_STATE="$OUT/theme-state"
+        echo "    theme: $THEME_NAME"
+    else
+        echo "    using the current theme instead" >&2
+    fi
+fi
 
 # ---- Theme colors (mirrors Color.lock in the Omarchy shell) ------------------
 

@@ -12,9 +12,22 @@
 --
 -- Sizes and positions given as fractions are relative to the screen height,
 -- so 0.10 means 10% of the screen. Colors are "#rrggbb" hex, or nil to follow
--- the current Omarchy theme (as of the last install).
+-- the theme (see theme below).
 
 return {
+  -- Theme for the boot screen's colors and wallpaper. nil follows the current
+  -- Omarchy theme (as of the last install); a theme's name pins it, e.g.
+  -- theme = "nord". A pinned theme shows its first wallpaper (or the one
+  -- picked now, if it is the current theme). Any installed theme works;
+  -- list them with: omarchy theme list
+  -- Omarchy's built-in themes:
+  --   "catppuccin", "catppuccin-latte", "ethereal", "everforest",
+  --   "flexoki-light", "gruvbox", "hackerman", "kanagawa", "last-horizon",
+  --   "lumon", "lupine", "matte-black", "miasma", "nord", "osaka-jade",
+  --   "retro-82", "ristretto", "rose-pine", "solitude", "tokyo-night",
+  --   "vantablack", "white"
+  theme = nil,
+
   clock = {
     font = "Adwaita Sans",
     size = 0.25,            -- digit height
