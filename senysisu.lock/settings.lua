@@ -60,6 +60,7 @@ return {
   password = {
     width = 340,            -- pixels
     height = 56,            -- pixels
+    rounding = nil,         -- corner radius in pixels; 0 = rectangle, nil = pill
     gap = 0.13,             -- space between the date and the password field
     placeholder = "Enter Password",
     reveal_toggle = true,   -- eye icon + Ctrl+R to show the password

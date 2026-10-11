@@ -37,7 +37,8 @@ authentication) is untouched from the original.
   out when disconnected or Wi-Fi is off). Bottom-right by default.
 - **Show password** — eye icon inside the left edge of the password field.
   Click it or press `Ctrl+R` to toggle. Resets to hidden after each submit.
-- **Password field** — pill-shaped, placed a fixed gap below the clock so it
+- **Password field** — pill-shaped by default (`rounding` sets the corner
+  radius; `0` makes it a rectangle), placed a fixed gap below the clock so it
   never overlaps it.
 - **Weather effects** — the wallpaper is color graded and animated to match
   the weather, either automatically (from the same wttr.in fetch) or set by
@@ -61,7 +62,7 @@ these sections:
 | `indicators` | `spacing` |
 | `battery` | `show_percent`, `low` |
 | `wifi` | `show_name` |
-| `password` | `width`, `height`, `gap`, `placeholder`, `reveal_toggle` |
+| `password` | `width`, `height`, `rounding`, `gap`, `placeholder`, `reveal_toggle` |
 | `effects` | `mode` (`"off"`/`"auto"`/`"manual"`), `weather`, `night` (`"auto"`/`true`/`false`), `intensity` |
 | `background` | `blur` |
 

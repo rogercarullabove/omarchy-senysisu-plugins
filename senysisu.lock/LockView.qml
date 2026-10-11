@@ -193,6 +193,8 @@ Item {
   readonly property string placeholderText: opt("password", "placeholder", "Enter Password")
   readonly property int fieldWidth: Math.round(opt("password", "width", 340))
   readonly property int fieldHeight: Math.round(opt("password", "height", 56))
+  // Corner radius in pixels: 0 = rectangle, unset or >= half the height = pill.
+  readonly property real fieldRadius: Math.max(0, Math.min(fieldHeight / 2, opt("password", "rounding", fieldHeight / 2)))
   readonly property int outlineThickness: 3
   readonly property int fieldFontSize: Math.round(Style.font.heading * 1.125)
   readonly property int passwordDotFontSize: Math.round(Style.font.heading * 1.33)
@@ -489,7 +491,7 @@ Item {
       y: clockBlock.y + clockBlock.height + Math.round(parent.height * root.opt("password", "gap", 0.13))
       color: Color.lock.background
       borderSpec: root.inputBorderSpec
-      radius: height / 2
+      radius: root.fieldRadius
       clip: true
 
       TextInput {
