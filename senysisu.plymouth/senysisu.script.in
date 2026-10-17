@@ -254,6 +254,15 @@ field.sprite.SetOpacity(0);
 label.sprite = Sprite();
 label.sprite.SetOpacity(0);
 
+// Caption under the field ("LUKS disk password"), shown with it.
+hint.sprite = Sprite();
+hint.sprite.SetOpacity(0);
+if (HINT_ENABLED) {
+  hint.image = load("hint.png");
+  hint.sprite.SetImage(hint.image);
+  hint.sprite.SetPosition(Math.Int((W - hint.image.GetWidth()) / 2), px(field_y + FIELD_H + HINT_GAP + HINT_Y_ADJ - SHADOW_PAD), 20);
+}
+
 fun show_label(name) {
   image = load(name);
   label.sprite.SetImage(image);
@@ -299,6 +308,7 @@ fun show_dots(n) {
 fun hide_password_field() {
   field.sprite.SetOpacity(0);
   label.sprite.SetOpacity(0);
+  hint.sprite.SetOpacity(0);
   cursor.sprite.SetOpacity(0);
   show_dots(0);
 }
@@ -320,6 +330,7 @@ fun display_password_callback(prompt, bullets) {
   if (global.failed) field.sprite.SetImage(load("field-error.png"));
   else field.sprite.SetImage(load("field.png"));
   field.sprite.SetOpacity(1);
+  hint.sprite.SetOpacity(HINT_ENABLED);
 
   show_dots(bullets);
   if (bullets > 0) {

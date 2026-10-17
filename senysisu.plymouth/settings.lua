@@ -65,6 +65,14 @@ return {
     placeholder = "Enter Password",
   },
 
+  -- A caption right under the password field, saying what it asks for.
+  hint = {
+    enabled = true,
+    text = "LUKS disk password",
+    gap = 0.012,            -- space between the password field and the caption
+    color = nil,            -- nil = the date's color
+  },
+
   background = {
     blur = 0.50,            -- 0.0 = sharp wallpaper, 1.0 = fully blurred
   },

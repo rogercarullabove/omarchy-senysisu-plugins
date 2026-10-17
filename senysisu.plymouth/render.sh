@@ -113,6 +113,7 @@ BORDER_ALPHA=$(toml "$shell_toml" lock border-alpha); BORDER_ALPHA=${BORDER_ALPH
 
 CLOCK_COLOR=$(opt clock color '""'); CLOCK_COLOR=${CLOCK_COLOR:-$LOCK_TEXT}
 DATE_COLOR=$(opt date color '""'); DATE_COLOR=${DATE_COLOR:-$LOCK_TEXT}
+HINT_COLOR=$(opt hint color '""'); HINT_COLOR=${HINT_COLOR:-$DATE_COLOR}
 
 # ---- Sizes (LockView.qml formulas) -------------------------------------------
 
@@ -142,6 +143,10 @@ FIELD_GAP=$(round "$SCREEN_H * $(opt password gap 0.13)")
 FIELD_RADIUS=$(awk -v r="$(opt password rounding "$(( FIELD_H / 2 ))")" -v h="$FIELD_H" \
     'BEGIN { r = r < 0 ? 0 : r; if (r > h / 2) r = h / 2; printf "%g", r }')
 PLACEHOLDER=$(opt password placeholder '"Enter Password"')
+HINT_ENABLED=$(opt hint enabled true)
+HINT_TEXT=$(opt hint text '"LUKS disk password"')
+[[ -n $HINT_TEXT ]] || HINT_ENABLED=false
+HINT_GAP=$(round "$SCREEN_H * $(opt hint gap 0.012)")
 BLUR=$(opt background blur 1.0)
 BATTERY_PERCENT=$(opt battery show_percent true)
 BATTERY_LOW=$(opt battery low 15)
@@ -352,6 +357,15 @@ line_metrics LABEL "$THEME/placeholder.png" "$MONO" 400 "$FIELD_FONT"
 DOT_W=$(advance "$MONO" "$DOT_FONT" ●)
 magick -size "2x$DOT_LINE_H" "xc:$LOCK_TEXT" "$THEME/cursor.png"
 
+# Caption under the field, in the battery corner's font.
+if [[ $HINT_ENABLED == true ]]; then
+    text_png "$THEME/hint.png" "$MONO Bold ${INFO_FONT}px" "$HINT_COLOR" "$HINT_TEXT"
+    line_metrics HINT "$THEME/hint.png" "$MONO" 700 "$INFO_FONT"
+    add_shadow "$THEME/hint.png"
+else
+    HINT_Y_ADJ=0
+fi
+
 # ---- Script + theme file ---------------------------------------------------------
 
 # rgb <NAME> <#rrggbb>: NAME_R/G/B globals as 0-1 floats.
@@ -387,6 +401,9 @@ rgb() { awk -v n="$1" -v h="${2#\#}" 'BEGIN { split("R G B", c); for (i = 1; i <
     echo "global.DOT_Y_ADJ = $DOT_Y_ADJ;"
     echo "global.LABEL_LINE_H = $LABEL_LINE_H;"
     echo "global.LABEL_Y_ADJ = $LABEL_Y_ADJ;"
+    echo "global.HINT_ENABLED = $([[ $HINT_ENABLED == true ]] && echo 1 || echo 0);"
+    echo "global.HINT_GAP = $HINT_GAP;"
+    echo "global.HINT_Y_ADJ = $HINT_Y_ADJ;"
     echo "global.INFO_LINE_H = $INFO_LINE_H;"
     echo "global.INFO_Y_ADJ = $INFO_Y_ADJ;"
     echo "global.INFO_ADVANCE = $INFO_ADVANCE;"
