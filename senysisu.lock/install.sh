@@ -92,6 +92,25 @@ else
     echo "    installed default settings.lua"
 fi
 
+# Stage a pinned theme once now, so a bad name or wallpaper number is
+# reported here and not only in the journal when the lock shows.
+if command -v lua >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    pinned_theme=$(lua "$PLUGIN_DIR/settings-loader.lua" "$PLUGIN_DIR/settings.lua" 2>/dev/null |
+        jq -r '.theme | if type == "string" then . else "" end' 2>/dev/null || true)
+    if [[ -n $pinned_theme ]]; then
+        stage_dir=$(mktemp -d)
+        if bash "$PLUGIN_DIR/theme-stage.sh" "$pinned_theme" "$stage_dir/out" 2>"$stage_dir/err"; then
+            sed 's/^/    warning: /' "$stage_dir/err" >&2
+            staged_wallpaper=$(readlink "$stage_dir/out/background" 2>/dev/null || true); staged_wallpaper=${staged_wallpaper##*/}
+            echo "    theme: $pinned_theme (${staged_wallpaper:-no wallpaper})"
+        else
+            sed 's/^/    warning: /' "$stage_dir/err" >&2
+            echo "    warning: the lock will follow the current theme instead" >&2
+        fi
+        rm -rf "$stage_dir"
+    fi
+fi
+
 echo "==> Validating plugin"
 omarchy plugin validate "$PLUGIN_DIR" || echo "    (validation reported issues — see above)"
 

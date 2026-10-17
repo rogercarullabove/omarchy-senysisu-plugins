@@ -13,7 +13,10 @@ return {
   -- Theme for the lock screen's colors and wallpaper. nil follows the current
   -- Omarchy theme (and changes with it); a theme's name pins it, e.g.
   -- theme = "nord". A pinned theme shows its first wallpaper (or the one
-  -- picked now, if it is the current theme). Any installed theme works;
+  -- picked now, if it is the current theme); add ",<n>" to pick its n-th
+  -- wallpaper instead, e.g. theme = "last-horizon,2" (counted in the order
+  -- `omarchy theme bg next` cycles through them; an n it doesn't have falls
+  -- back to the first, with a warning). Any installed theme works;
   -- list them with: omarchy theme list
   -- Omarchy's built-in themes:
   --   "catppuccin", "catppuccin-latte", "ethereal", "everforest",

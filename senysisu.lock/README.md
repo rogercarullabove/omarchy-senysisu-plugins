@@ -92,8 +92,12 @@ listed in the file). `theme-stage.sh` stages it the way `omarchy theme set`
 would, without switching to it: copies its `colors.toml`/`shell*.toml` into a
 scratch home, runs Omarchy's own `omarchy-theme-set-templates` there to
 generate its `shell.toml`, and picks its first wallpaper (the current theme
-keeps the wallpaper picked now). The lock restages it each time it shows. An
-unknown name follows the current theme and logs a warning with the list.
+keeps the wallpaper picked now). `"<theme>,<n>"` picks its n-th wallpaper
+instead (`"last-horizon,2"`), counted in the order `omarchy theme bg next`
+cycles through them, user-added ones included; an n it doesn't have falls back
+to the first and warns (in the journal, and when running `install.sh`). The
+lock restages it each time it shows. An unknown name follows the current theme
+and logs a warning with the list.
 
 How it works: `Service.qml` watches `settings.lua`, runs it through
 `settings-loader.lua` (converts the returned table to JSON with the system

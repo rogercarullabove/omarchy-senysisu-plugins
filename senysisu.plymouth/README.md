@@ -24,7 +24,7 @@ The first `./install.sh` (or `--preview`) creates it from this folder's
 `settings.lua` and never overwrites it afterwards. It holds only what the boot
 screen can show: `clock`, `date`, `battery` (`corner = false` hides it),
 `password`, `background.blur` and `theme` (`nil` = the current theme, or an
-installed theme's name to pin it), with the same meaning and defaults as the
+installed theme's name to pin it, `"last-horizon,2"` for its 2nd wallpaper), with the same meaning and defaults as the
 lock's. There's no `plugins/` manifest in that folder, so the Omarchy shell
 ignores it.
 

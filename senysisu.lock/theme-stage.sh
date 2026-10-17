@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# senysisu.lock/theme-stage.sh <theme> <out-dir>
+# senysisu.lock/theme-stage.sh <theme>[,<n>] <out-dir>
 # senysisu.lock/theme-stage.sh --list
 #
 # Stages an installed Omarchy theme the way `omarchy theme set` would, without
@@ -15,7 +15,10 @@
 # current one. <theme> is a theme's folder name ("tokyo-night") or its name as
 # `omarchy theme list` prints it ("Tokyo Night"). The wallpaper is the one
 # `omarchy theme set` starts that theme with (its first background), except
-# for the current theme, which keeps the wallpaper picked now.
+# for the current theme, which keeps the wallpaper picked now. A ",<n>" suffix
+# ("last-horizon,2") picks the theme's n-th wallpaper instead, in the order
+# `omarchy theme bg next` cycles through them (user-added ones included); an
+# n out of range warns on stderr and falls back to the first.
 #
 # --list prints the installed themes' folder names, one per line. An unknown
 # theme exits 2 with that list on stderr.
@@ -39,8 +42,16 @@ if [[ ${1:-} == --list ]]; then
     exit 0
 fi
 
-name="${1:?usage: theme-stage.sh <theme> <out-dir> | --list}"
-out="${2:?usage: theme-stage.sh <theme> <out-dir> | --list}"
+name="${1:?usage: theme-stage.sh <theme>[,<n>] <out-dir> | --list}"
+out="${2:?usage: theme-stage.sh <theme>[,<n>] <out-dir> | --list}"
+
+# "last-horizon,2" -> theme "last-horizon", wallpaper 2.
+index=""
+if [[ $name == *,* ]]; then
+    index=$(tr -d '[:space:]' <<<"${name##*,}")
+    name="${name%,*}"
+fi
+name=$(sed -E 's/^[[:space:]]+|[[:space:]]+$//g' <<<"$name")
 
 # "Tokyo Night" -> "tokyo-night", as omarchy-theme-set does.
 name=$(sed -E 's/<[^>]+>//g' <<<"$name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
@@ -57,15 +68,35 @@ else
     exit 2
 fi
 
+# The theme's wallpapers in omarchy-theme-bg-next's order, user-added ones
+# included; omarchy-theme-set starts a theme with the first.
+mapfile -d '' -t wallpapers < <(
+    find -L "$HOME/.config/omarchy/backgrounds/$name/" "$source_dir/backgrounds/" -maxdepth 1 -type f \
+        \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) \
+        -print0 2>/dev/null | sort -z
+)
+if [[ -n $index ]]; then
+    if [[ ! $index =~ ^[0-9]+$ ]] || ((10#$index < 1 || 10#$index > ${#wallpapers[@]})); then
+        echo "theme-stage.sh: theme '$name' has no wallpaper '$index' (it has ${#wallpapers[@]}); using the first." >&2
+        index=1
+    fi
+    index=$((10#$index))
+fi
+
 rm -rf "$out"
 mkdir -p "$out/theme"
 
 # The current theme is already staged; copy it (not link: it changes on the
-# next theme switch) and keep the wallpaper picked for it.
+# next theme switch) and keep the wallpaper picked for it, unless one was
+# asked for.
 if [[ $(cat "$CURRENT/theme.name" 2>/dev/null) == "$name" && -f $CURRENT/theme/colors.toml ]]; then
     cp "$CURRENT/theme/colors.toml" "$out/theme/"
     if [[ -f $CURRENT/theme/shell.toml ]]; then cp "$CURRENT/theme/shell.toml" "$out/theme/"; fi
-    wallpaper=$(readlink -f "$CURRENT/background" 2>/dev/null || true)
+    if [[ -n $index ]]; then
+        wallpaper=${wallpapers[index - 1]:-}
+    else
+        wallpaper=$(readlink -f "$CURRENT/background" 2>/dev/null || true)
+    fi
     if [[ -n $wallpaper && -f $wallpaper ]]; then ln -s "$wallpaper" "$out/background"; fi
     exit 0
 fi
@@ -96,9 +127,5 @@ for file in colors.toml shell.toml; do
     if [[ -f $next/$file ]]; then cp "$next/$file" "$out/theme/"; fi
 done
 
-# omarchy-theme-set's choice for a theme switched to: the first background,
-# user-added ones included.
-wallpaper=$(find -L "$HOME/.config/omarchy/backgrounds/$name/" "$source_dir/backgrounds/" -maxdepth 1 -type f \
-    \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) \
-    -print0 2>/dev/null | sort -z | tr '\0' '\n' | sed -n 1p || true)
+wallpaper=${wallpapers[${index:-1} - 1]:-}
 if [[ -n $wallpaper ]]; then ln -s "$wallpaper" "$out/background"; fi

@@ -134,9 +134,9 @@ Item {
   readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, ""))
   property var settings: ({})
 
-  // settings.theme pins a theme: theme-stage.sh stages it (as `omarchy theme
-  // set` would, without switching to it) and its palette and wallpaper are
-  // read back from there. Restaged whenever the lock shows, so a pinned
+  // settings.theme pins a theme ("nord", or "nord,2" for its 2nd wallpaper):
+  // theme-stage.sh stages it (as `omarchy theme set` would, without
+  // switching to it) and its palette and wallpaper are read back from there. Restaged whenever the lock shows, so a pinned
   // current theme keeps up with wallpaper changes; until then the lock keeps
   // the last staging rather than flashing the current theme.
   readonly property string pinnedTheme: settings && typeof settings.theme === "string" ? settings.theme.trim() : ""
@@ -198,11 +198,14 @@ Item {
       waitForEnd: true
       onStreamFinished: {
         var message = String(text || "").trim().replace(/\s*\n\s*/g, " ")
-        if (message.length > 0) console.warn("senysisu.lock: " + message + " — following the current theme")
+        if (message.length > 0) console.warn("senysisu.lock: " + message)
       }
     }
     onExited: function(exitCode) {
-      if (exitCode !== 0 && requested === root.pinnedTheme) root.pinned = null
+      if (exitCode !== 0 && requested === root.pinnedTheme) {
+        console.warn("senysisu.lock: could not stage theme '" + requested + "' — following the current theme")
+        root.pinned = null
+      }
       if (again) {
         again = false
         root.stageTheme()

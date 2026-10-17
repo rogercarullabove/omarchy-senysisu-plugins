@@ -60,7 +60,8 @@ THEME_NAME=$(jq -r '.theme | if type == "string" then . else "" end' <<<"$SETTIN
 if [[ -n $THEME_NAME ]]; then
     if "$SRC_DIR/../senysisu.lock/theme-stage.sh" "$THEME_NAME" "$OUT/theme-state"; then
         THEME_STATE="$OUT/theme-state"
-        echo "    theme: $THEME_NAME"
+        staged_wallpaper=$(readlink "$OUT/theme-state/background" 2>/dev/null || true); staged_wallpaper=${staged_wallpaper##*/}
+        echo "    theme: $THEME_NAME (${staged_wallpaper:-no wallpaper})"
     else
         echo "    using the current theme instead" >&2
     fi
