@@ -55,8 +55,16 @@ opt() {
 }
 
 # ---- Theme: the current one, or the one the theme setting names --------------
+# THEME_OVERRIDE (set by install.sh --theme) replaces the setting for this
+# render: "current" for the current theme, or "<theme>[,<n>]".
 
-THEME_NAME=$(jq -r '.theme | if type == "string" then . else "" end' <<<"$SETTINGS")
+if [[ -n ${THEME_OVERRIDE:-} ]]; then
+    THEME_NAME=$THEME_OVERRIDE
+    [[ $THEME_NAME == current ]] && THEME_NAME=""
+else
+    THEME_NAME=$(jq -r '.theme | if type == "string" then . else "" end' <<<"$SETTINGS")
+fi
+[[ -n $THEME_NAME ]] || echo "    theme: current ($(cat "$THEME_STATE/theme.name" 2>/dev/null))"
 if [[ -n $THEME_NAME ]]; then
     if "$SRC_DIR/../senysisu.lock/theme-stage.sh" "$THEME_NAME" "$OUT/theme-state"; then
         THEME_STATE="$OUT/theme-state"

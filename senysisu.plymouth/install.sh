@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# senysisu.plymouth/install.sh [--preview | --uninstall]
+# senysisu.plymouth/install.sh [--theme <choice>] [--preview]
+# senysisu.plymouth/install.sh --uninstall
 #
 # Installs the senysisu boot screen: the disk-unlock prompt drawn like the
 # senysisu.lock lock screen. Renders the theme from its own settings file,
@@ -25,6 +26,20 @@
 #   --uninstall  go back to Omarchy's boot screen and remove everything above
 #                (your settings.lua is kept)
 #
+# Theme and wallpaper: run from a terminal, it shows the current Omarchy
+# theme and wallpaper, what settings.lua says, and the installed themes with
+# how many wallpapers each has, and asks which to use. --theme answers
+# without asking:
+#
+#   --theme lua             what settings.lua says (also the default when
+#                           not run from a terminal)
+#   --theme current         the current Omarchy theme and wallpaper
+#   --theme <name>[,<n>]    that theme, with its n-th wallpaper (e.g. nord,2)
+#
+# A choice other than settings.lua's is saved there as its `theme` (current
+# as nil), so the file keeps describing the installed boot screen. --preview
+# uses the choice but never saves it.
+#
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,7 +49,7 @@ DROPIN=/etc/mkinitcpio.conf.d/zz-senysisu-plymouth.conf
 PACMAN_HOOK=/etc/pacman.d/hooks/95-senysisu-plymouth.hook
 REAPPLY=/usr/local/lib/senysisu-plymouth/reapply
 CONF_DIR=/etc/senysisu-plymouth
-SETTINGS_FILE="$HOME/.config/omarchy/plugins/senysisu.plymouth/settings.lua"
+SETTINGS_FILE="${SETTINGS_FILE:-$HOME/.config/omarchy/plugins/senysisu.plymouth/settings.lua}"
 
 # First run: give the user their own copy of the settings to edit, with the
 # command to re-run filled in. Never overwrites an existing one.
@@ -46,6 +61,11 @@ seed_settings() {
     echo "    Edit it to change the boot screen, then re-run $0"
 }
 
+# Theme prompt, --theme handling and saving, shared with senysisu.lock.
+SCREEN_NAME="Boot screen"
+# shellcheck source=../senysisu.lock/theme-choice.sh
+source "$SRC_DIR/../senysisu.lock/theme-choice.sh"
+
 rebuild_boot_images() {
     echo "==> Rebuilding the boot images (this takes a little while)"
     if command -v limine-mkinitcpio >/dev/null; then
@@ -55,12 +75,26 @@ rebuild_boot_images() {
     fi
 }
 
-case "${1:-}" in
---preview)
-    seed_settings
-    exec "$SRC_DIR/preview.sh"
-    ;;
---uninstall)
+usage() {
+    sed -n '3,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'
+    exit 1
+}
+
+MODE=install
+THEME_CHOICE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --preview) MODE=preview ;;
+    --uninstall) MODE=uninstall ;;
+    --theme) [[ -n ${2:-} ]] || usage; THEME_CHOICE=$2; shift ;;
+    --theme=?*) THEME_CHOICE=${1#--theme=} ;;
+    *) usage ;;
+    esac
+    shift
+done
+
+case "$MODE" in
+uninstall)
     echo "==> Switching back to Omarchy's boot screen"
     if [[ $(plymouth-set-default-theme) == senysisu ]]; then
         sudo plymouth-set-default-theme omarchy
@@ -72,12 +106,18 @@ case "${1:-}" in
     echo "Done. The boot screen is Omarchy's again (omarchy plymouth set by theme <name> recolors it)."
     exit 0
     ;;
-"") ;;
-*)
-    sed -n '3,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'
-    exit 1
-    ;;
 esac
+
+# ---- Theme and wallpaper -----------------------------------------------------
+
+seed_settings
+choose_theme "$THEME_CHOICE" || exit 1
+# render.sh draws the choice; "lua" leaves it to settings.lua.
+if [[ $THEME_CHOICE != lua ]]; then export THEME_OVERRIDE=$THEME_CHOICE; fi
+
+if [[ $MODE == preview ]]; then
+    exec "$SRC_DIR/preview.sh"
+fi
 
 echo "==> Checking requirements"
 for cmd in magick lua jq plymouth-set-default-theme mkinitcpio lsinitcpio; do
@@ -96,7 +136,6 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-seed_settings
 echo "==> Rendering the theme"
 "$SRC_DIR/render.sh" "$work"
 
@@ -143,6 +182,8 @@ fi
 echo "    ok ($(du -h "$work/test.img" | cut -f1) image, hook and theme present)"
 
 rebuild_boot_images
+# Only now: settings.lua should describe the boot screen that is installed.
+if [[ $THEME_CHOICE != lua ]]; then save_theme "$THEME_CHOICE"; fi
 
 echo ""
 echo "Done. You'll see it at the next boot. If it ever misbehaves at the disk"

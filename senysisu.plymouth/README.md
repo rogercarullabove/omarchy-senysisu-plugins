@@ -12,6 +12,44 @@ with the `theme` setting).
 ./install.sh --uninstall   # back to Omarchy's boot screen
 ```
 
+## Theme and wallpaper
+
+Run from a terminal, the installer (and `--preview`) first asks which theme
+and wallpaper to draw. It shows the current Omarchy theme and wallpaper, what
+`settings.lua` says, and every installed theme with its number of wallpapers:
+
+```
+==> Boot screen theme
+    Current Omarchy theme:  last-horizon, wallpaper 4 (4-new-horizons.jpg)
+    settings.lua:           last-horizon, wallpaper 1
+    Installed themes (wallpapers):
+      1 aamis (1)                 2 aether (1)                3 akaito (3)
+      ...
+     25 tokyo-night (8)          26 vantablack (5)           27 white (4)
+    Pick one:
+      Enter                  keep settings.lua's choice
+      c                      the current theme and wallpaper
+      19  or  nord           a theme from the list (asks for the wallpaper next)
+      19,2 or nord,2         a theme and its wallpaper number in one go
+Theme:
+```
+
+Enter keeps `settings.lua`'s choice; `c` takes the current theme and
+wallpaper; a number or name picks a theme and then asks for its wallpaper
+(`19` then `3`, or `nord,3` in one go). `--theme` answers without asking:
+
+| Option | Draws |
+|---|---|
+| `--theme lua` | What `settings.lua` says. Also the default when not run from a terminal |
+| `--theme current` | The current Omarchy theme and wallpaper |
+| `--theme <name>[,<n>]` | That theme with its n-th wallpaper, e.g. `--theme nord,3` |
+
+A choice other than `settings.lua`'s is written into its `theme` (the current
+theme as `nil`) once the boot images are rebuilt, so the file keeps
+describing what is installed. `--preview` uses the choice without saving it.
+Wallpapers are counted in the order `omarchy theme bg next` cycles through
+them.
+
 ## Settings
 
 The boot screen has its own settings, separate from the lock screen's:
@@ -31,7 +69,8 @@ ignores it.
 
 The boot screen is a **snapshot**: saving `settings.lua` changes nothing.
 Re-run `./install.sh` (optionally `--preview` first) after changing it, the
-wallpaper or the Omarchy theme. `--uninstall` keeps the settings file.
+wallpaper or the Omarchy theme; `./install.sh --theme lua` re-applies the
+file without asking. `--uninstall` keeps the settings file.
 
 ## How it works
 
