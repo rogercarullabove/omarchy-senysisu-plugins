@@ -1,6 +1,6 @@
 # Plan: senysisu.cpu, senysisu.ram, senysisu.disk
 
-Status: implemented on `dev/senysisu.cpu`, `dev/senysisu.ram` and `dev/senysisu.disk`, not merged (2026-10-18).
+Status: implemented and merged into `master` (2026-10-18). The `dev/senysisu.*` branches are kept for further tweaks.
 
 Three new bar widgets for this repo: CPU, memory and disk usage. Each one is
 a small graphic in the bar that turns red past a threshold, and opens a
