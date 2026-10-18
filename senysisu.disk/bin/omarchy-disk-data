@@ -1,0 +1,49 @@
+#!/bin/bash
+# Outputs a single JSON object describing every real mounted filesystem, for
+# the senysisu.disk plugin (polled every `interval`, 30 s by default):
+#   {"mounts": [{"target": "/", "source": "/dev/mapper/root", "fstype": "btrfs",
+#     "size": 509943480320, "used": 162524479488, "avail": 346890862592,
+#     "luks": true, "disk": "nvme0n1", "model": "WDC PC SN730 ..."}, ...]}
+# Sizes are bytes. A filesystem mounted more than once (btrfs subvolumes:
+# /, /home, /var/log, ...) is listed once, at its shortest mount point.
+
+json_escape() {
+    local s=${1//\\/\\\\}
+    s=${s//\"/\\\"}
+    printf '%s' "$s"
+}
+
+declare -A SEEN
+MOUNTS=""
+
+while read -r source fstype size used avail target; do
+    [[ -n "${SEEN[$source]}" ]] && continue
+    SEEN[$source]=1
+
+    # Walk the device's ancestors (partition, LUKS mapping, ...) to the
+    # physical disk, which is what /proc/diskstats and the model belong to.
+    luks=false
+    disk=""
+    if [[ "$source" == /dev/* ]]; then
+        while read -r name type; do
+            case "$type" in
+                crypt) luks=true ;;
+                disk) [[ -z "$disk" ]] && disk=$name ;;
+            esac
+        done < <(lsblk -rnso NAME,TYPE "$source" 2>/dev/null)
+    fi
+    model=""
+    [[ -n "$disk" && -r "/sys/block/$disk/device/model" ]] && model=$(xargs < "/sys/block/$disk/device/model")
+
+    MOUNTS+="${MOUNTS:+,}
+    {\"target\": \"$(json_escape "$target")\", \"source\": \"$(json_escape "$source")\", \"fstype\": \"$fstype\", \"size\": $size, \"used\": $used, \"avail\": $avail, \"luks\": $luks, \"disk\": \"$disk\", \"model\": \"$(json_escape "$model")\"}"
+done < <(df -B1 --output=source,fstype,size,used,avail,target \
+            -x tmpfs -x devtmpfs -x efivarfs -x overlay -x squashfs -x ramfs 2>/dev/null \
+         | tail -n +2 | awk '$3 > 0' | awk '{ print length($6), $0 }' | sort -n | cut -d' ' -f2-)
+
+cat << EOF
+{
+  "mounts": [${MOUNTS}
+  ]
+}
+EOF
