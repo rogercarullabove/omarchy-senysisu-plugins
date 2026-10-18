@@ -1,9 +1,15 @@
 #!/bin/bash
 # Outputs a single JSON object with the memory details the senysisu.ram panel
-# shows: the processes using the most memory, with RSS summed over every
-# process of the same name (a browser is many processes). The bar's figures
-# don't come from here: BarWidget.qml reads /proc/meminfo directly. Only run
-# while the panel is open.
+# shows: the processes using the most memory, summed over every process of
+# the same name (a browser is many processes). The bar's figures don't come
+# from here: BarWidget.qml reads /proc/meminfo directly. Only run while the
+# panel is open.
+#
+# Memory is PSS (proportional set size): a page shared by N processes counts
+# 1/N towards each, so summing a browser's processes gives what it really
+# uses. Summed RSS would count every shared page once per process and can
+# overstate a browser by half. PSS is only readable for your own processes;
+# other users' (root daemons) fall back to RSS.
 
 json_escape() {
     local s=${1//\\/\\\\}
@@ -12,11 +18,23 @@ json_escape() {
 }
 
 TOP=""
-while read -r rss name; do
-    TOP+="${TOP:+,}{\"name\": \"$(json_escape "$name")\", \"rssKb\": $rss}"
-done < <(ps -eo rss=,comm= 2>/dev/null \
-    | awk '$1 > 0 { rss=$1; $1=""; sub(/^ /, ""); total[$0]+=rss } END { for (n in total) print total[n], n }' \
-    | sort -rn | head -5)
+while read -r kb name; do
+    TOP+="${TOP:+,}{\"name\": \"$(json_escape "$name")\", \"kb\": $kb}"
+done < <(
+    {
+        # "/proc/123/smaps_rollup:Pss:   1234 kB"
+        grep -H '^Pss:' /proc/[0-9]*/smaps_rollup 2>/dev/null \
+            | awk -F'[/:]+' '{ split($0, f, " "); print "pss", $3, f[2] }'
+        ps -eo pid=,rss=,comm= 2>/dev/null | awk '{ pid=$1; rss=$2; $1=""; $2=""; sub(/^ +/, ""); print "ps", pid, rss, $0 }'
+    } | awk '
+        $1 == "pss" { pss[$2] = $3; next }
+        $1 == "ps" && $3 > 0 {
+            name = $4; for (i = 5; i <= NF; i++) name = name " " $i
+            total[name] += ($2 in pss) ? pss[$2] : $3
+        }
+        END { for (n in total) print total[n], n }' \
+    | sort -rn | head -5
+)
 
 cat << EOF
 {

@@ -240,7 +240,7 @@ Panel {
               readonly property var proc: root.details.top[Math.floor(index / 2)]
               readonly property bool isName: index % 2 === 0
               Layout.fillWidth: isName
-              text: isName ? proc.name : Model.formatKb(proc.rssKb)
+              text: isName ? proc.name : Model.formatKb(proc.kb)
               textFormat: Text.PlainText
               color: root.foreground
               opacity: isName ? 0.6 : 1

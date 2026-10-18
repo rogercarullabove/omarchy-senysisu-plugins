@@ -69,9 +69,11 @@ Unknown values fall back to the default.
 Keys: `r` refresh, `b` or Enter opens btop, Esc closes, Tab moves to the
 neighbouring bar panel.
 
-Process memory is RSS summed over every process with the same name, so a
-browser shows as one line. Shared pages are counted once per process, so the
-sum can exceed what the browser really uses.
+Process memory is PSS (proportional set size) summed over every process with
+the same name, so a browser shows as one line with what it really uses: a
+page shared by several processes is split between them instead of counted
+once per process, as summed RSS would. PSS is only readable for your own
+processes; other users' (root daemons) are counted by RSS.
 
 ## How it works
 
@@ -80,6 +82,7 @@ sum can exceed what the browser really uses.
   history, so the graph starts empty after a shell restart.
 - `Panel.qml` reads `/proc/swaps` and `/proc/pressure/memory` the same way,
   and runs `bin/omarchy-ram-data` (installed to `~/.local/bin`) for the top
-  processes, every 3 s and only while it is open.
+  processes (PSS from `/proc/<pid>/smaps_rollup`, about 50 ms), every 3 s
+  and only while it is open.
 - `Gauge.qml` draws the ring; `Model.js` holds the parsing, threshold and
   formatting logic (loadable in node).
