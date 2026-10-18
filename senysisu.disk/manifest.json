@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "senysisu.disk",
+  "name": "Disk Usage",
+  "version": "1.0.0",
+  "author": "senysisu",
+  "license": "MIT",
+  "description": "Disk usage in the bar (ring, percent or both) that turns red past a threshold, with a detail panel.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Disk Usage",
+    "description": "Fullest watched filesystem as a ring gauge; click for every filesystem and read/write activity.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

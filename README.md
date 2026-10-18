@@ -37,6 +37,7 @@ bar widget: `install.sh` hands it off to `senysisu.lock/install.sh` (see below).
 | `senysisu.lte/` | Signal-bar icon + detail panel for the LTE modem (via `mmcli`), with its own enable/disable toggle |
 | `senysisu.cpu/` | CPU usage per core in the bar (sparkline, columns, ring or percent), red past a threshold; panel with load, clocks, temperature and top processes — see its own README |
 | `senysisu.ram/` | Memory usage in the bar (ring, percent or both), red past a threshold; panel with used/cache/free, swap, pressure and top processes — see its own README |
+| `senysisu.disk/` | Disk usage in the bar (ring, percent or both) for the fullest watched mount, red past a threshold; panel with every filesystem and read/write activity — see its own README |
 | `senysisu.lock/` | Custom lock screen (replaces `omarchy.lock`), configured from a Lua file — see its own README |
 | `senysisu.plymouth/` | Boot/disk-unlock screen drawn like `senysisu.lock` (Plymouth theme + initramfs clock hook); own settings in `~/.config/omarchy/plugins/senysisu.plymouth/settings.lua` — see its own README |
 
