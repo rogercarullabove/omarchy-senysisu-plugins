@@ -22,8 +22,10 @@ chmod +x install.sh
 ./install.sh senysisu.plymouth      # boot screen to match; --preview first
 ```
 
-`--after <widget-id>` is optional for any bar widget — omit it to just
-append the widget to its manifest's `defaultSection`. `senysisu.lock` isn't a
+Placement is optional for any bar widget: `--section left|center|right`
+picks the bar zone, and `--before`/`--after <widget-id>` places it next to
+another widget. Omit them to append the widget to its manifest's
+`defaultSection`. Move it later with `omarchy bar move` or by dragging it. `senysisu.lock` isn't a
 bar widget: `install.sh` hands it off to `senysisu.lock/install.sh` (see below).
 
 ## What's in here

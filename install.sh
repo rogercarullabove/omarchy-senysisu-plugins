@@ -1,26 +1,25 @@
 #!/bin/bash
 #
-# install.sh <plugin-id> [--after <widget-id>]
+# install.sh <plugin-id> [--section left|center|right] [--before|--after <widget-id>]
 #
 # Installs one of this repo's Omarchy bar-widget plugins: copies its
-# backing scripts (plugin-dir/bin/*) into ~/.local/bin, its
-# manifest.json/[BarWidget.qml/]Panel.qml/Model.js into
-# ~/.config/omarchy/plugins/<plugin-id> (BarWidget.qml only if the plugin
-# has one — see README), validates it, enables it (placed
-# right after --after's widget if given, otherwise appended to whatever
-# section its manifest's defaultSection says), forces a full shell
-# restart, and confirms.
+# backing scripts (plugin-dir/bin/*) into ~/.local/bin, its manifest.json
+# and every *.qml/*.js file into ~/.config/omarchy/plugins/<plugin-id>,
+# validates it, enables it (in --section if given, placed before/after
+# another widget if given, otherwise appended to whatever section its
+# manifest's defaultSection says), forces a full shell restart, and confirms.
 #
 # Examples:
 #   ./install.sh senysisu.airplane-mode --after omarchy.weather
 #   ./install.sh senysisu.lte
+#   ./install.sh senysisu.cpu --section left
 #
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
-    echo "Usage: $0 <senysisu.airplane-mode|senysisu.lte> [--after <widget-id>]" >&2
+    echo "Usage: $0 <bar-widget-plugin-id> [--section left|center|right] [--before|--after <widget-id>]" >&2
     echo "       $0 senysisu.lock [--uninstall]" >&2
     echo "       $0 senysisu.plymouth [--preview|--uninstall]" >&2
     exit 1
@@ -38,11 +37,19 @@ if [[ -f "$PLUGIN_SRC/install.sh" ]]; then
     exec bash "$PLUGIN_SRC/install.sh" "$@"
 fi
 
-AFTER=""
-if [[ "${1:-}" == "--after" ]]; then
-    AFTER="${2:-}"
-    [[ -n "$AFTER" ]] || usage
-fi
+# Placement flags are handed to `omarchy plugin enable` as-is; it validates
+# them (one of --before/--after, section left/center/right).
+PLACEMENT=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --section|--before|--after)
+            [[ -n "${2:-}" ]] || usage
+            PLACEMENT+=("$1" "$2")
+            shift 2
+            ;;
+        *) usage ;;
+    esac
+done
 
 echo "==> Installing backing scripts to ~/.local/bin"
 mkdir -p "$HOME/.local/bin"
@@ -58,10 +65,9 @@ fi
 PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
 echo "==> Installing plugin files to $PLUGIN_DIR"
 mkdir -p "$PLUGIN_DIR"
-cp "$PLUGIN_SRC/manifest.json" "$PLUGIN_SRC/Panel.qml" "$PLUGIN_SRC/Model.js" "$PLUGIN_DIR/"
-if [[ -f "$PLUGIN_SRC/BarWidget.qml" ]]; then
-    cp "$PLUGIN_SRC/BarWidget.qml" "$PLUGIN_DIR/"
-fi
+shopt -s nullglob
+cp "$PLUGIN_SRC/manifest.json" "$PLUGIN_SRC"/*.qml "$PLUGIN_SRC"/*.js "$PLUGIN_DIR/"
+shopt -u nullglob
 
 echo "==> Validating plugin"
 if command -v omarchy >/dev/null 2>&1; then
@@ -70,11 +76,7 @@ fi
 
 echo "==> Enabling $PLUGIN_ID"
 if command -v omarchy >/dev/null 2>&1; then
-    if [[ -n "$AFTER" ]]; then
-        omarchy plugin enable "$PLUGIN_ID" --after "$AFTER"
-    else
-        omarchy plugin enable "$PLUGIN_ID"
-    fi
+    omarchy plugin enable "$PLUGIN_ID" "${PLACEMENT[@]}"
 fi
 
 echo "==> Forcing a full shell restart (a plain rescan has not been reliable — see README)"
