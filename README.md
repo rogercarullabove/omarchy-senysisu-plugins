@@ -23,7 +23,7 @@ git clone git@github.com:rogercarullabove/omarchy-senysisu-plugins.git
 cd omarchy-senysisu-plugins
 
 # Password screens
-./install.sh senysisu.lock
+./install.sh senysisu.lock                  # asks for the theme and wallpaper; --theme skips that
 ./install.sh senysisu.plymouth --preview    # look first, then without --preview
 
 # Bar widgets: system monitors
@@ -74,6 +74,10 @@ lightning, and snow.
   `omarchy.lock`, and re-enables `omarchy.lock` if anything fails, so the
   machine is never left without a lock screen. It refuses to run while the
   session is locked.
+- Like the boot screen's, it asks which theme and wallpaper to use, listing
+  the installed themes with their wallpaper counts. `--theme lua`,
+  `--theme current` or `--theme <name>[,<n>]` answers without asking; the
+  choice is written to its `settings.lua`, which the lock reads live.
 - Try changes with `omarchy-shell lock preview`, not by locking (see the
   lessons below).
 

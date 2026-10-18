@@ -2,6 +2,7 @@
 #
 # senysisu.lock/theme-stage.sh <theme>[,<n>] <out-dir>
 # senysisu.lock/theme-stage.sh --list
+# senysisu.lock/theme-stage.sh --wallpapers <theme>
 #
 # Stages an installed Omarchy theme the way `omarchy theme set` would, without
 # switching to it: <out-dir> is laid out like ~/.local/state/omarchy/current,
@@ -20,8 +21,9 @@
 # `omarchy theme bg next` cycles through them (user-added ones included); an
 # n out of range warns on stderr and falls back to the first.
 #
-# --list prints the installed themes' folder names, one per line. An unknown
-# theme exits 2 with that list on stderr.
+# --list prints the installed themes' folder names, one per line.
+# --wallpapers prints a theme's wallpapers, one path per line, in the order
+# ",<n>" counts them. An unknown theme exits 2 with the theme list on stderr.
 #
 set -euo pipefail
 
@@ -42,8 +44,14 @@ if [[ ${1:-} == --list ]]; then
     exit 0
 fi
 
-name="${1:?usage: theme-stage.sh <theme>[,<n>] <out-dir> | --list}"
-out="${2:?usage: theme-stage.sh <theme>[,<n>] <out-dir> | --list}"
+list_wallpapers=""
+if [[ ${1:-} == --wallpapers ]]; then
+    list_wallpapers=1
+    shift
+fi
+usage="usage: theme-stage.sh <theme>[,<n>] <out-dir> | --list | --wallpapers <theme>"
+name="${1:?$usage}"
+[[ -n $list_wallpapers ]] || out="${2:?$usage}"
 
 # "last-horizon,2" -> theme "last-horizon", wallpaper 2.
 index=""
@@ -75,6 +83,11 @@ mapfile -d '' -t wallpapers < <(
         \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) \
         -print0 2>/dev/null | sort -z
 )
+if [[ -n $list_wallpapers ]]; then
+    if ((${#wallpapers[@]} > 0)); then printf '%s\n' "${wallpapers[@]}"; fi
+    exit 0
+fi
+
 if [[ -n $index ]]; then
     if [[ ! $index =~ ^[0-9]+$ ]] || ((10#$index < 1 || 10#$index > ${#wallpapers[@]})); then
         echo "theme-stage.sh: theme '$name' has no wallpaper '$index' (it has ${#wallpapers[@]}); using the first." >&2

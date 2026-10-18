@@ -17,6 +17,42 @@ an existing `settings.lua`), swaps it in for `omarchy.lock`, and restarts the
 shell. If anything fails after the built-in lock was disabled, it re-enables
 it, so you're never left without a lock screen. Re-run it to update.
 
+### Theme and wallpaper
+
+Run from a terminal, the installer first asks which theme and wallpaper the
+lock should use, the same way `senysisu.plymouth`'s installer does. It shows
+the current Omarchy theme and wallpaper, what `settings.lua` says, and every
+installed theme with its number of wallpapers:
+
+```
+==> Lock screen theme
+    Current Omarchy theme:  last-horizon, wallpaper 4 (4-new-horizons.jpg)
+    settings.lua:           ristretto, wallpaper 1
+    Installed themes (wallpapers):
+      1 aamis (1)                 2 aether (1)                3 akaito (3)
+      ...
+     25 tokyo-night (8)          26 vantablack (5)           27 white (4)
+    Pick one:
+      Enter                  keep settings.lua's choice
+      c                      the current theme and wallpaper
+      19  or  nord           a theme from the list (asks for the wallpaper next)
+      19,2 or nord,2         a theme and its wallpaper number in one go
+Theme:
+```
+
+`--theme` answers without asking:
+
+| Option | The lock uses |
+|---|---|
+| `--theme lua` | What `settings.lua` says. Also the default when not run from a terminal |
+| `--theme current` | The current Omarchy theme, following theme switches live |
+| `--theme <name>[,<n>]` | That theme with its n-th wallpaper, e.g. `--theme nord,3` |
+
+The lock reads `settings.lua` live, so a choice is applied by writing it into
+its `theme` (`current` as `nil`). An unknown theme stops the installer before
+anything changes. Unlike the boot screen there is no `--preview`: the
+installer ends by pointing to `omarchy-shell lock preview`.
+
 ## What's different from the original
 
 Changes are in `LockView.qml` and `WeatherBackdrop.qml` (weather effects,
