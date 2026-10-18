@@ -25,6 +25,7 @@ cd omarchy-senysisu-plugins
 # Password screens
 ./install.sh senysisu.lock
 ./install.sh senysisu.plymouth --preview    # look first, then without --preview
+                                            # (asks for the theme and wallpaper; --theme skips that)
 
 # Bar widgets: system monitors
 ./install.sh senysisu.cpu  --section left --after omarchy.workspaces
@@ -91,6 +92,10 @@ update resets the boot theme to its own.
   with sudo, test-builds it and rebuilds the boot images.
 - `--preview` shows it in a window without root and without installing
   anything.
+- It asks which theme and wallpaper to draw, listing the installed themes
+  with their wallpaper counts. `--theme lua`, `--theme current` or
+  `--theme <name>[,<n>]` answers without asking; a new choice is saved in
+  its `settings.lua`.
 - Its settings hold only what a boot screen can show (`clock`, `date`,
   `battery`, `password`, `background.blur`, `theme`, `hint`), with the same
   meaning and defaults as the lock screen's.
