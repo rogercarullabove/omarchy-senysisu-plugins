@@ -1,0 +1,25 @@
+#!/bin/bash
+# Outputs a single JSON object with the memory details the senysisu.ram panel
+# shows: the processes using the most memory, with RSS summed over every
+# process of the same name (a browser is many processes). The bar's figures
+# don't come from here: BarWidget.qml reads /proc/meminfo directly. Only run
+# while the panel is open.
+
+json_escape() {
+    local s=${1//\\/\\\\}
+    s=${s//\"/\\\"}
+    printf '%s' "$s"
+}
+
+TOP=""
+while read -r rss name; do
+    TOP+="${TOP:+,}{\"name\": \"$(json_escape "$name")\", \"rssKb\": $rss}"
+done < <(ps -eo rss=,comm= 2>/dev/null \
+    | awk '$1 > 0 { rss=$1; $1=""; sub(/^ /, ""); total[$0]+=rss } END { for (n in total) print total[n], n }' \
+    | sort -rn | head -5)
+
+cat << EOF
+{
+  "top": [${TOP}]
+}
+EOF

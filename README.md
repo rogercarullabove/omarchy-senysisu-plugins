@@ -35,6 +35,7 @@ bar widget: `install.sh` hands it off to `senysisu.lock/install.sh` (see below).
 | `install.sh` | Shared installer for any plugin in this repo — see Quick start |
 | `senysisu.airplane-mode/` | One-tap toggle for WiFi + Bluetooth + LTE together |
 | `senysisu.lte/` | Signal-bar icon + detail panel for the LTE modem (via `mmcli`), with its own enable/disable toggle |
+| `senysisu.ram/` | Memory usage in the bar (ring, percent or both), red past a threshold; panel with used/cache/free, swap, pressure and top processes — see its own README |
 | `senysisu.lock/` | Custom lock screen (replaces `omarchy.lock`), configured from a Lua file — see its own README |
 | `senysisu.plymouth/` | Boot/disk-unlock screen drawn like `senysisu.lock` (Plymouth theme + initramfs clock hook); own settings in `~/.config/omarchy/plugins/senysisu.plymouth/settings.lua` — see its own README |
 
