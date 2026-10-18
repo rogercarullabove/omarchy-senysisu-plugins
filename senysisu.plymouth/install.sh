@@ -62,6 +62,7 @@ seed_settings() {
 }
 
 # Theme prompt, --theme handling and saving, shared with senysisu.lock.
+SCREEN_NAME="Boot screen"
 # shellcheck source=../senysisu.lock/theme-choice.sh
 source "$SRC_DIR/../senysisu.lock/theme-choice.sh"
 

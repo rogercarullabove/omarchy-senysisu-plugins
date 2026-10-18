@@ -2,7 +2,8 @@
 # senysisu.lock/theme-choice.sh: sourced by the senysisu.lock and
 # senysisu.plymouth installers, so both pick a theme and wallpaper the same
 # way. Needs SETTINGS_FILE (the settings.lua to read and write) and,
-# optionally, CURRENT_NOTE (how the screen treats "the current theme").
+# optionally, SCREEN_NAME ("Lock screen", for the prompt's heading) and
+# CURRENT_NOTE (how that screen treats "the current theme").
 #
 #   choose_theme <choice>   choice is "", "lua", "current" or "<theme>[,<n>]";
 #                           "" asks from a terminal (settings.lua without
@@ -62,7 +63,7 @@ ask_theme() {
     mapfile -t themes < <("$STAGE" --list)
     for name in "${themes[@]}"; do counts+=("$(wallpaper_count "$name")"); done
 
-    echo "==> Boot screen theme"
+    echo "==> ${SCREEN_NAME:-Screen} theme"
     echo "    Current Omarchy theme:  $CURRENT_THEME, wallpaper ${cur_index:-?} ($(basename "$(readlink -f "$CURRENT_STATE/background" 2>/dev/null)" 2>/dev/null))"
     if [[ -n $lua_theme ]]; then
         echo "    settings.lua:           $(describe "$lua_theme")"
