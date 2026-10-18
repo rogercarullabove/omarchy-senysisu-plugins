@@ -76,6 +76,9 @@ fi
 
 echo "==> Enabling $PLUGIN_ID"
 if command -v omarchy >/dev/null 2>&1; then
+    # A plugin installed for the first time isn't known to the running shell
+    # until it rescans, and `omarchy plugin enable` refuses unknown ids.
+    omarchy-shell shell rescanPlugins >/dev/null 2>&1 || true
     omarchy plugin enable "$PLUGIN_ID" "${PLACEMENT[@]}"
 fi
 
