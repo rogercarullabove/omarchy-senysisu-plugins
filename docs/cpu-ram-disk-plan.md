@@ -1,6 +1,6 @@
 # Plan: senysisu.cpu, senysisu.ram, senysisu.disk
 
-Status: planned, not implemented (2026-10-18).
+Status: implemented on `dev/senysisu.cpu`, `dev/senysisu.ram` and `dev/senysisu.disk`, not merged (2026-10-18).
 
 Three new bar widgets for this repo: CPU, memory and disk usage. Each one is
 a small graphic in the bar that turns red past a threshold, and opens a
@@ -55,7 +55,7 @@ shows 8 columns of 2 threads each.
 | Plugin | Default icon | Nerd Font name |
 |---|---|---|
 | CPU | `󰻠` | `nf-md-cpu_64_bit` |
-| RAM | `󰍛` | `nf-md-memory` |
+| RAM | `` | `nf-fa-memory` (a RAM stick; `nf-md-memory` renders as a chip, too close to the CPU icon) |
 | Disk | `󰋊` | `nf-md-harddisk` |
 
 The codepoints are verified against the installed `JetBrainsMono Nerd Font`
@@ -267,9 +267,15 @@ Move later with `omarchy bar move`, or by dragging the widget in the bar.
 6. Write `senysisu.<x>/README.md`, add the root README row, commit on the
    branch. Merge to `master` when you decide to.
 
-## Open items
+## Resolved during implementation
 
-- `FileView` on `/proc`: unknown until the spike in step 2.
-- Glyph codepoints: verified at implementation time, not from memory.
-- The CPU 60-second graph and the RAM 5-minute history are kept in memory by
-  the widget, so they start empty after a shell restart.
+- `FileView` reads `/proc/stat`, `/proc/meminfo`, `/proc/swaps`,
+  `/proc/pressure/memory` and `/proc/diskstats` correctly after `reload()`,
+  so CPU and RAM start no process for the bar. The bin scripts only supply
+  panel extras (CPU, RAM) or the `df` poll (disk).
+- Glyphs checked against the installed font and `glyphnames.json`:
+  `md-cpu_64_bit` U+F0EE0, `fa-memory` U+EFC5, `md-harddisk` U+F02CA.
+- `install.sh` now rescans plugins before enabling, since a first install
+  is otherwise unknown to the running shell.
+- The CPU 60-second graph and the RAM 5-minute history live in memory, so
+  they start empty after a shell restart.
