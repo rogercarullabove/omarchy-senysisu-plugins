@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "senysisu.cpu",
+  "name": "CPU Usage",
+  "version": "1.0.0",
+  "author": "senysisu",
+  "license": "MIT",
+  "description": "Per-core CPU usage in the bar (sparkline, columns, ring or percent) that turns red past a threshold, with a detail panel.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "CPU Usage",
+    "description": "Per-core usage gauge; click for load, clocks, temperature and top processes.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

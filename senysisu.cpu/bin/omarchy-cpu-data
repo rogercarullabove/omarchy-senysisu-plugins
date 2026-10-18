@@ -1,0 +1,70 @@
+#!/bin/bash
+# Outputs a single JSON object with the CPU details the senysisu.cpu panel
+# shows (model, load, uptime, clock speeds, temperature, top processes).
+# The bar's usage figure doesn't come from here: BarWidget.qml reads
+# /proc/stat directly. Only run while the panel is open.
+
+json_escape() {
+    local s=${1//\\/\\\\}
+    s=${s//\"/\\\"}
+    printf '%s' "$s"
+}
+
+MODEL=$(grep -m1 '^model name' /proc/cpuinfo | cut -d: -f2- | xargs)
+THREADS=$(nproc 2>/dev/null || echo 0)
+read -r L1 L5 L15 _ < /proc/loadavg
+UPTIME=$(cut -d' ' -f1 /proc/uptime)
+
+FREQS=""
+for f in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq; do
+    [ -r "$f" ] || continue
+    FREQS+="${FREQS:+,}$(( $(cat "$f") / 1000 ))"
+done
+MAX_FREQ=null
+if [ -r /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq ]; then
+    MAX_FREQ=$(( $(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq) / 1000 ))
+fi
+
+# Package temperature from the CPU's hwmon driver: coretemp (Intel),
+# k10temp/zenpower (AMD), cpu_thermal (ARM). Prefer the "Package"/"Tctl"
+# sensor, else the hottest one the driver reports.
+TEMP=null
+for h in /sys/class/hwmon/hwmon*; do
+    case "$(cat "$h/name" 2>/dev/null)" in
+        coretemp|k10temp|zenpower|cpu_thermal) ;;
+        *) continue ;;
+    esac
+    best=""
+    for input in "$h"/temp*_input; do
+        [ -r "$input" ] || continue
+        label=$(cat "${input%_input}_label" 2>/dev/null)
+        value=$(cat "$input")
+        case "$label" in
+            Package*|Tctl|Tdie) best=$value; break ;;
+        esac
+        if [ -z "$best" ] || [ "$value" -gt "$best" ]; then best=$value; fi
+    done
+    if [ -n "$best" ]; then TEMP=$(( best / 1000 )); break; fi
+done
+
+# top's second sample covers the last 0.5 s; the first is an average since
+# each process started, which is what makes `ps %cpu` misleading.
+TOP=""
+while read -r cpu name; do
+    TOP+="${TOP:+,}{\"name\": \"$(json_escape "$name")\", \"cpu\": $cpu}"
+done < <(top -b -n 2 -d 0.5 -w 512 -o %CPU 2>/dev/null \
+    | awk '/^ *PID /{n++; next} n==2 && NF>=12 && $9+0 > 0 { name=$12; for (i=13; i<=NF; i++) name=name" "$i; print $9, name }' \
+    | head -5)
+
+cat << EOF
+{
+  "model": "$(json_escape "$MODEL")",
+  "threads": ${THREADS:-0},
+  "load": [${L1:-0}, ${L5:-0}, ${L15:-0}],
+  "uptime": ${UPTIME:-null},
+  "freqMhz": [${FREQS}],
+  "maxFreqMhz": ${MAX_FREQ},
+  "tempC": ${TEMP},
+  "top": [${TOP}]
+}
+EOF
