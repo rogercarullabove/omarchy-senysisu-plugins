@@ -146,15 +146,16 @@ function formatPressure(avg10) {
 }
 
 // omarchy-ram-data prints the panel-only details as JSON:
-//   {"top": [{"name": "firefox", "rssKb": 2100000}, ...]}
-// rssKb is summed over every process with that name.
+//   {"top": [{"name": "firefox", "kb": 2100000}, ...]}
+// kb is PSS (RSS for other users' processes), summed over every process
+// with that name.
 function parseDetails(raw) {
   var value = null
   try { value = JSON.parse(String(raw || "").trim()) } catch (error) { value = null }
   value = value && typeof value === "object" ? value : {}
   var top = Array.isArray(value.top) ? value.top : []
   return {
-    top: top.map(function(p) { return { name: String(p && p.name || "?"), rssKb: parseInt(p && p.rssKb, 10) || 0 } })
+    top: top.map(function(p) { return { name: String(p && p.name || "?"), kb: parseInt(p && p.kb, 10) || 0 } })
   }
 }
 
