@@ -54,6 +54,10 @@ BarWidget {
       cores = u.cores
       history = Model.pushHistory(history, u.total, historyLimit)
       warning = Model.isWarning(warning, Model.average(history, Model.WARN_SAMPLES), warnAt)
+    } else {
+      // Usage needs two samples; until then draw one empty column per core
+      // so the widget doesn't change width on the second one.
+      cores = current.cores.map(function() { return 0 })
     }
     lastSample = current
   }
