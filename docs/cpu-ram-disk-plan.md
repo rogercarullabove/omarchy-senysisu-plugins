@@ -59,7 +59,7 @@ shows 8 columns of 2 threads each.
 | Disk | `󰋊` | `nf-md-harddisk` |
 
 The codepoints are verified against the installed `JetBrainsMono Nerd Font`
-(render it, then check `glyphnames.json`) before shipping, per lesson 5 in
+(render it, then check `glyphnames.json`) before shipping, per lesson 8 in
 the README. `icon` accepts any string, so `"🧠"`, `"💾"` or `"CPU"` work too.
 
 ### Warning color
@@ -257,7 +257,7 @@ Move later with `omarchy bar move`, or by dragging the widget in the bar.
      it can be checked with `node -e`.
 3. Bar graphic: every `style`, the leading icon, the red warning state and
    the vertical fallback. Render outside the shell with `qml` +
-   `grabToImage` (lesson 14), and check the glyphs against the font (lesson 5).
+   `grabToImage` (lesson 18), and check the glyphs against the font (lesson 8).
 4. Detail panel: the default layout first, then the alternatives.
 5. Verify in the real shell:
    - Install into each zone and confirm with `omarchy-shell shell debugBarGeometry` and a clean `qs log`.
