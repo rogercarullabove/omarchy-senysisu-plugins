@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "senysisu.ram",
+  "name": "Memory Usage",
+  "version": "1.0.0",
+  "author": "senysisu",
+  "license": "MIT",
+  "description": "Memory usage in the bar (ring, percent or both) that turns red past a threshold, with a detail panel.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Memory Usage",
+    "description": "Memory ring gauge; click for used/cache/free, swap, pressure and top processes.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
